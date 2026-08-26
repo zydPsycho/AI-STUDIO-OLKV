@@ -19,10 +19,13 @@ android {
         applicationId = "com.blackmark.bloodlink"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-        val supabaseUrl = System.getenv("SUPABASE_URL") ?: (project.findProperty("SUPABASE_URL") as String? ?: localProperties.getProperty("SUPABASE_URL", ""))
-        val supabaseKey = System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: (project.findProperty("SUPABASE_PUBLISHABLE_KEY") as String? ?: localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY", ""))
+        versionCode = 2
+        versionName = "1.1"
+        // This is the public Supabase client configuration; RLS remains the data boundary.
+        val defaultSupabaseUrl = "https://whvrmzfesmdmwmkxtcsg.supabase.co"
+        val defaultSupabaseKey = "sb_publishable_sOR8HAGbrmnxJWEwskD7uQ_YIy41jfV"
+        val supabaseUrl = System.getenv("SUPABASE_URL") ?: (project.findProperty("SUPABASE_URL") as String? ?: localProperties.getProperty("SUPABASE_URL", defaultSupabaseUrl))
+        val supabaseKey = System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: (project.findProperty("SUPABASE_PUBLISHABLE_KEY") as String? ?: localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY", defaultSupabaseKey))
         buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.replace("\\\"", "\\\\\"")}\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${supabaseKey.replace("\\\"", "\\\\\"")}\"")
     }
