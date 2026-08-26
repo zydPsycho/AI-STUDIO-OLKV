@@ -62,11 +62,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 withContext(Dispatchers.IO) { repository.createDonor(localDonor) }
             }.onSuccess { syncedDonor ->
-                val next = _donors.value.filterNot { it.id == syncedDonor.id } + syncedDonor
+                val next = _donors.value.filterNot { it.id == localDonor.id || it.id == syncedDonor.id } + syncedDonor
                 _donors.value = next
                 store.saveDonors(next)
+                _currentDonorId.value = syncedDonor.id
+                store.saveCurrentDonorId(syncedDonor.id)
             }.onFailure { error ->
-                _error.value = error.message ?: "Profile saved locally, but could not reach Supabase."
+                val next = _donors.value.filterNot { it.id == localDonor.id }
+                _donors.value = next
+                store.saveDonors(next)
+                _currentDonorId.value = null
+                store.saveCurrentDonorId(null)
+                _error.value = error.message ?: "We could not publish your profile. Please try again."
+            }
+            _isSyncing.value = false
+        }
+    }
+
+    fun updateAvailability(id: String, isAvailable: Boolean) {
+        val current = _donors.value.firstOrNull { it.id == id } ?: return
+        val optimistic = current.copy(isAvailable = isAvailable)
+        _donors.value = _donors.value.map { if (it.id == id) optimistic else it }
+        store.saveDonors(_donors.value)
+        viewModelScope.launch {
+            _isSyncing.value = true
+            _error.value = null
+            runCatching {
+                withContext(Dispatchers.IO) { repository.updateAvailability(id, isAvailable) }
+            }.onSuccess { updated ->
+                _donors.value = _donors.value.map { if (it.id == id) updated else it }
+                store.saveDonors(_donors.value)
+            }.onFailure { error ->
+                _donors.value = _donors.value.map { if (it.id == id) current else it }
+                store.saveDonors(_donors.value)
+                _error.value = error.message ?: "Could not update availability."
             }
             _isSyncing.value = false
         }

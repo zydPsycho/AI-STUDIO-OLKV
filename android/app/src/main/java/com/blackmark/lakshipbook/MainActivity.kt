@@ -1,5 +1,6 @@
 package com.blackmark.bloodlink
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -104,6 +105,7 @@ import coil.compose.AsyncImage
 import com.blackmark.bloodlink.data.BloodGroups
 import com.blackmark.bloodlink.data.Donor
 import com.blackmark.bloodlink.ui.theme.BloodLinkTheme
+import java.io.File
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
@@ -117,7 +119,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class AppTab(val label: String) { DONORS("Donors"), PROFILE("My profile"), ABOUT("About") }
+private enum class AppTab(val label: String) { DONORS("Donors"), PROFILE("My profile"), SETTINGS("Settings") }
 
 @Composable
 private fun BloodLinkRoot(viewModel: AppViewModel) {
@@ -150,7 +152,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
                                 when (tab) {
                                     AppTab.DONORS -> Icons.Filled.Bloodtype
                                     AppTab.PROFILE -> Icons.Filled.Person
-                                    AppTab.ABOUT -> Icons.Filled.Info
+                                    AppTab.SETTINGS -> Icons.Filled.Info
                                 },
                                 contentDescription = tab.label,
                             )
@@ -165,6 +167,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
             when (selectedTab) {
                 AppTab.DONORS -> DonorDirectoryScreen(
                     donors = donors,
+                    currentDonorId = currentDonorId,
                     isSyncing = isSyncing,
                     onRefresh = viewModel::refresh,
                     onOpenDonor = { selectedDonor = it },
@@ -173,10 +176,13 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
                 AppTab.PROFILE -> MyProfileScreen(
                     donor = donors.firstOrNull { it.id == currentDonorId },
                     onCreateProfile = { editingDonor = null; showEditor = true },
-                    onEdit = { editingDonor = donors.firstOrNull { it.id == currentDonorId }; showEditor = true },
-                    onDelete = { donors.firstOrNull { it.id == currentDonorId }?.let { viewModel.deleteLocalProfile(it.id) } },
                 )
-                AppTab.ABOUT -> AboutScreen(onClearData = viewModel::clearLocalData)
+                AppTab.SETTINGS -> SettingsScreen(
+                    donor = donors.firstOrNull { it.id == currentDonorId },
+                    isSyncing = isSyncing,
+                    onRefresh = viewModel::refresh,
+                    onAvailabilityChanged = { donor, value -> viewModel.updateAvailability(donor.id, value) },
+                )
             }
         }
     }
@@ -209,11 +215,13 @@ private fun ScreenHeader(eyebrow: String, title: String, subtitle: String? = nul
 }
 
 @Composable
-private fun DonorDirectoryScreen(donors: List<Donor>, isSyncing: Boolean, onRefresh: () -> Unit, onOpenDonor: (Donor) -> Unit, onCreateProfile: () -> Unit) {
+private fun DonorDirectoryScreen(donors: List<Donor>, currentDonorId: String?, isSyncing: Boolean, onRefresh: () -> Unit, onOpenDonor: (Donor) -> Unit, onCreateProfile: () -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
     var selectedGroup by rememberSaveable { mutableStateOf("All") }
     val filtered = donors.filter { donor ->
-        (search.isBlank() || donor.name.contains(search, true)) && (selectedGroup == "All" || donor.bloodGroup == selectedGroup)
+        donor.id != currentDonorId &&
+            (search.isBlank() || donor.name.contains(search, true)) &&
+            (selectedGroup == "All" || donor.bloodGroup == selectedGroup)
     }
     val availableCount = filtered.count { it.isAvailable }
 
@@ -274,11 +282,7 @@ private fun DonorDirectoryScreen(donors: List<Donor>, isSyncing: Boolean, onRefr
         } else {
             items(filtered, key = { it.id }) { donor -> DonorCard(donor, onClick = { onOpenDonor(donor) }) }
         }
-        item {
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                Icon(Icons.Filled.WarningAmber, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp)); Text("For KADU union use only. Verify donor identity and hospital instructions before relying on a listing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        
     }
 }
 
@@ -321,20 +325,17 @@ private fun DonorDetailSheet(donor: Donor, onDismiss: () -> Unit) {
 private fun DetailRow(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) { Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, Modifier.size(21.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)); Column { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge) } } }
 
 @Composable
-private fun MyProfileScreen(donor: Donor?, onCreateProfile: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun MyProfileScreen(donor: Donor?, onCreateProfile: () -> Unit, onEdit: () -> Unit = {}, onDelete: () -> Unit = {}) {
     if (donor == null) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { ScreenHeader("Your profile", "Add your KADU donor card", "Your profile will be visible in the shared directory") }
             item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(24.dp)) { Column(Modifier.padding(22.dp)) { Icon(Icons.Filled.PersonAdd, null, Modifier.size(34.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(12.dp)); Text("Help your union find you.", style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(6.dp)); Text("Add your name, age, blood group, phone number and photo. All member details are visible because this directory is for KADU union use only.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(18.dp)); Button(onClick = onCreateProfile, Modifier.fillMaxWidth().height(50.dp)) { Text("CREATE MY PROFILE") } } } }
-            item { UnionNotice() }
         }
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ScreenHeader("Your profile", "My donor card", "Visible to KADU members using this directory", action = { IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Edit profile") } }) }
+        item { ScreenHeader("Your profile", "My donor card", "Your local profile is shown here only") }
         item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Column(Modifier.padding(20.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { ProfileAvatar(donor, 72.dp); Spacer(Modifier.width(16.dp)); Column(Modifier.weight(1f)) { Text(donor.name, style = MaterialTheme.typography.titleLarge); Text("${donor.age} years · KADU · Kavaratti", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(8.dp)); AvailabilityLabel(donor.isAvailable) }; BloodGroupBadge(donor.bloodGroup) }; Spacer(Modifier.height(18.dp)); HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant); Spacer(Modifier.height(12.dp)); DetailRow("Phone", donor.phone, Icons.Filled.Phone) } } }
-        item { UnionNotice() }
-        item { OutlinedButton(onClick = onDelete, Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Filled.DeleteOutline, null); Spacer(Modifier.width(8.dp)); Text("REMOVE MY LOCAL PROFILE") } }
     }
 }
 
@@ -349,9 +350,9 @@ private fun DonorEditor(initial: Donor?, onDismiss: () -> Unit, onSave: (Donor) 
     var bloodGroup by rememberSaveable(initial?.id) { mutableStateOf(initial?.bloodGroup.orEmpty()) }
     var phone by rememberSaveable(initial?.id) { mutableStateOf(initial?.phone.orEmpty()) }
     var imageUri by rememberSaveable(initial?.id) { mutableStateOf(initial?.imageUri.orEmpty()) }
-    var isAvailable by rememberSaveable(initial?.id) { mutableStateOf(initial?.isAvailable ?: true) }
     var error by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) imageUri = uri.toString() }
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) imageUri = copyPickedImage(context, uri) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -361,9 +362,8 @@ private fun DonorEditor(initial: Donor?, onDismiss: () -> Unit, onSave: (Donor) 
             item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { FormField("Age", age, Modifier.weight(0.8f), KeyboardType.Number) { age = it.filter(Char::isDigit); error = null }; Column(Modifier.weight(1.6f)) { Text("Blood group", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(5.dp)); LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(BloodGroups) { group -> FilterChip(bloodGroup == group, { bloodGroup = group; error = null }, label = { Text(group) }) } } } } }
             item { FormField("Phone number", phone, keyboardType = KeyboardType.Phone) { phone = it; error = null } }
             item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) { Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Visibility, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)); Column { Text("Phone visible to union members", style = MaterialTheme.typography.titleMedium); Text("No login is used in this KADU directory.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Spacer(Modifier.weight(1f)); Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary) } } }
-            item { Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Available to donate", style = MaterialTheme.typography.titleMedium); Text("Show availability in the directory", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Switch(isAvailable, { isAvailable = it }) } }
             if (error != null) item { Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            item { Button(onClick = { val parsedAge = age.toIntOrNull(); error = when { name.trim().length < 2 -> "Please enter your name."; parsedAge == null || parsedAge !in 18..70 -> "Please enter an age between 18 and 70."; bloodGroup !in BloodGroups -> "Please select your blood group."; phone.trim().replace(" ", "").length < 7 -> "Please enter a valid phone number."; else -> null }; if (error == null) onSave(Donor(initial?.id ?: UUID.randomUUID().toString(), name.trim(), parsedAge!!, bloodGroup, phone.trim(), imageUri, isAvailable, true, false)) }, Modifier.fillMaxWidth().height(52.dp)) { Text(if (initial == null) "PUBLISH TO KADU DIRECTORY" else "SAVE CHANGES") } }
+            item { Button(onClick = { val parsedAge = age.toIntOrNull(); error = when { name.trim().length < 2 -> "Please enter your name."; parsedAge == null || parsedAge !in 18..70 -> "Please enter an age between 18 and 70."; bloodGroup !in BloodGroups -> "Please select your blood group."; phone.trim().replace(" ", "").length < 7 -> "Please enter a valid phone number."; else -> null }; if (error == null) onSave(Donor(initial?.id ?: UUID.randomUUID().toString(), name.trim(), parsedAge!!, bloodGroup, phone.trim(), imageUri, true, true, false)) }, Modifier.fillMaxWidth().height(52.dp)) { Text(if (initial == null) "PUBLISH TO KADU DIRECTORY" else "SAVE CHANGES") } }
             item { Text("By publishing, you confirm these details are intended for KADU union use.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
@@ -378,7 +378,34 @@ private fun PhotoPickerAvatar(imageUri: String, name: String, onClick: () -> Uni
 @Composable
 private fun ProfileAvatar(donor: Donor, size: androidx.compose.ui.unit.Dp) { if (donor.imageUri.isNotBlank()) { AsyncImage(model = donor.imageUri, contentDescription = "Profile photo of ${donor.name}", modifier = Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop) } else { Surface(modifier = Modifier.size(size), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text(initials(donor.name), style = if (size > 80.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold) } } } }
 
+private fun copyPickedImage(context: Context, uri: Uri): String {
+    return runCatching {
+        val extension = when (context.contentResolver.getType(uri)) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            else -> "jpg"
+        }
+        val file = File(context.cacheDir, "bloodlink-profile-${UUID.randomUUID()}.$extension")
+        context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+            ?: return uri.toString()
+        Uri.fromFile(file).toString()
+    }.getOrElse { uri.toString() }
+}
+
 private fun initials(name: String): String = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "?" }
+
+@Composable
+private fun SettingsScreen(donor: Donor?, isSyncing: Boolean, onRefresh: () -> Unit, onAvailabilityChanged: (Donor, Boolean) -> Unit) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { ScreenHeader("Settings", "Your availability", "Update only your own donor status", action = { IconButton(onClick = onRefresh) { if (isSyncing) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Filled.Refresh, "Refresh directory") } }) }
+        if (donor == null) {
+            item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(22.dp)) { Text("Create your profile first", style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(6.dp)); Text("Your availability setting will appear here after you publish your KADU donor profile.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+        } else {
+            item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) { Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Available to donate", style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(4.dp)); Text(if (donor.isAvailable) "Your profile is marked available in the directory." else "Your profile is marked not available.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Switch(checked = donor.isAvailable, onCheckedChange = { onAvailabilityChanged(donor, it) }) } } }
+        }
+        item { Text("BLOODLINK by KADU · Kavaratti, Lakshadweep · v1.0", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}
 
 @Composable
 private fun AboutScreen(onClearData: () -> Unit) {
@@ -386,7 +413,6 @@ private fun AboutScreen(onClearData: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { ScreenHeader("About the union directory", "BLOODLINK by KADU", "Simple donor coordination for KADU members") }
         item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(20.dp)) { Text("How it works", style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(12.dp)); AboutStep("01", "Create a profile", "Add your name, age, blood group, phone number and an optional photo."); AboutStep("02", "Search by blood group", "Use the blood-group filter to find a matching KADU donor quickly."); AboutStep("03", "Call directly", "Phone numbers are visible for union coordination and the call button opens your dialer.") } } }
-        item { UnionNotice() }
         item { Button(onClick = { showClearDialog = true }, Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Filled.DeleteOutline, null); Spacer(Modifier.width(8.dp)); Text("CLEAR THIS DEVICE") } }
         item { Text("BLOODLINK by KADU · Kavaratti, Lakshadweep · v1.0", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }

@@ -32,6 +32,9 @@ create policy kadu_donors_public_read on public.kadu_donors for select to anon, 
 drop policy if exists kadu_donors_public_create on public.kadu_donors;
 create policy kadu_donors_public_create on public.kadu_donors for insert to anon, authenticated with check (union_name = 'KADU' and char_length(btrim(name)) between 2 and 80 and age between 18 and 70);
 
+drop policy if exists kadu_donors_public_update on public.kadu_donors;
+create policy kadu_donors_public_update on public.kadu_donors for update to anon, authenticated using (true) with check (union_name = 'KADU' and char_length(btrim(name)) between 2 and 80 and age between 18 and 70);
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('kadu-donor-photos', 'kadu-donor-photos', true, 5242880, array['image/jpeg','image/png','image/webp']::text[])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;

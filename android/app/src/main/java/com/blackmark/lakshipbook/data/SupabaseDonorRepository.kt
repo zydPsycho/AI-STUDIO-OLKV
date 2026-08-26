@@ -31,7 +31,6 @@ class SupabaseDonorRepository(private val context: Context) {
         ensureConfigured()
         val photoUrl = donor.imageUri.takeIf { it.isNotBlank() }?.let { uploadPhoto(Uri.parse(it), donor.id) }
         val payload = JsonObject().apply {
-            addProperty("id", donor.id)
             addProperty("union_name", "KADU")
             addProperty("name", donor.name)
             addProperty("age", donor.age)
@@ -48,6 +47,19 @@ class SupabaseDonorRepository(private val context: Context) {
         )
         val created = JsonParser.parseString(response).asJsonArray.first().asJsonObject
         return donorFromJson(created).copy(imageUri = photoUrl.orEmpty())
+    }
+
+    fun updateAvailability(id: String, isAvailable: Boolean): Donor {
+        ensureConfigured()
+        val payload = JsonObject().apply { addProperty("is_available", isAvailable) }
+        val response = request(
+            path = "/rest/v1/kadu_donors?id=eq.$id",
+            method = "PATCH",
+            body = gson.toJson(payload).toByteArray(),
+            extraHeaders = mapOf("Prefer" to "return=representation"),
+        )
+        val updated = JsonParser.parseString(response).asJsonArray.first().asJsonObject
+        return donorFromJson(updated)
     }
 
     private fun uploadPhoto(uri: Uri, donorId: String): String {
