@@ -30,17 +30,17 @@ Result: `BUILD SUCCESSFUL`.
 
 ## Functional scope verified by compilation and code review
 
-The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, web emergency-alert creation and feed filtered by the current donor blood group, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
+The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
 
-## Public deployment
+## Shared backend
 
 | Item | Result |
 | --- | --- |
 | Supabase project | `whvrmzfesmdmwmkxtcsg` |
-| Supabase donor read smoke test | HTTP 200; empty directory at first deployment |
-| Vercel production URL | https://bloodlink-by-kadu.vercel.app |
-| GitHub release commit | Updated in the next commit after the photo and owner-filter fix |
+| Supabase donor read smoke test | HTTP 200 |
+| Client surface | Native Android APK only |
+| GitHub release commit | Updated in the APK-only release commit |
 
 ## Asset and privacy notes
 
-The bundled visual assets are the BLOODLINK by KADU blood-drop launcher vector and the matching web favicon. Profile photos are selected by the user and uploaded to the public Supabase `kadu-donor-photos` bucket. The app does not request contacts, SMS, call logs, or direct-call permission. Because there is no login, the APK and public URL must be distributed only within KADU; Supabase public policies allow anonymous donor reads, inserts, and availability updates by design. Each device locally tracks one profile and hides it from that device’s donor list. Emergency alerts are queried only for the locally owned donor’s blood group; a user without a donor profile sees no targeted alert feed. Closed-app push delivery is not enabled in this build because Firebase `google-services.json` and a trusted Firebase service-account secret have not been supplied; alerts are currently available through the in-app feed and refresh flow.
+The bundled visual asset is the BLOODLINK by KADU launcher vector. Profile photos are selected by the user and uploaded to the public Supabase `kadu-donor-photos` bucket. The app does not request contacts, SMS, call logs, or direct-call permission. Because there is no login, the APK should be distributed only within KADU; Supabase public policies allow anonymous donor reads, inserts, and availability updates by design. Each device locally tracks one profile and hides it from that device’s donor list. Emergency alerts are queried only for the locally owned donor’s blood group; a user without a donor profile sees no targeted alert feed. Closed-app push delivery is not enabled in this build because Firebase `google-services.json` and a trusted Firebase service-account secret have not been supplied; alerts are currently available through the in-app feed and refresh flow.

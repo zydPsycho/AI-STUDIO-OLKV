@@ -1,5 +1,7 @@
 # BLOODLINK by KADU
 
-BLOODLINK is the KADU union blood-donor directory for Kavaratti, Lakshadweep. Keep the public experience focused on donor profiles, blood-group search, member contact, availability, and emergency alerts. Do not reintroduce marketplace, buyer, seller, listing, payment, or account-login flows.
+BLOODLINK is the KADU union blood-donor directory for Kavaratti, Lakshadweep. Keep the user-facing product focused on donor profiles, blood-group search, member contact, availability, and blood-group-targeted emergency alerts. Do not reintroduce marketplace, buyer, seller, listing, payment, subscription, web-directory, or account-login flows.
 
-The Android app is a native Kotlin/Jetpack Compose client. The web surface is a TanStack Start application deployed through Vercel. Supabase is the shared donor-data and profile-photo backend. Keep all user-facing copy branded as **BLOODLINK by KADU**.
+The only user-facing client in this repository is the native Kotlin and Jetpack Compose Android app under `android/`. Supabase is retained only as the shared donor-data, profile-photo, availability, emergency-alert, and future push-targeting backend. Keep all user-facing copy branded as **BLOODLINK by KADU**.
+
+Closed-app push notifications require Firebase credentials that must remain outside version control. Never commit `google-services.json`, Firebase service-account JSON, or other secrets.

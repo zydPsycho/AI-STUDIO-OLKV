@@ -23,7 +23,7 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The pro
 
 ## Prototype limitation
 
-This APK is shared-data enabled: donor profiles and photos are stored in the selected Supabase project so Android and the Vercel web surface see the same directory. There is intentionally no login. Anyone who receives the APK or public link can view and publish records, so distribute it only within KADU. A production release should add an invite gate, moderation/reporting, audit logs, rate limits, and emergency-service guidance.
+This APK is shared-data enabled: donor profiles, photos, availability, and targeted emergency alerts are stored in the selected Supabase project so all distributed Android devices see the same live data. There is intentionally no login. Anyone who receives the APK can view and publish records, so distribute it only within KADU. A production release should add an invite gate, moderation/reporting, audit logs, rate limits, and emergency-service guidance.
 
 ## Safety and privacy
 
