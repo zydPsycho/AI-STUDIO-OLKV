@@ -4,9 +4,9 @@
 
 ## Implemented
 
-The APK connects to Supabase project `whvrmzfesmdmwmkxtcsg` through its public REST and Storage APIs. It includes shared donor cards, name search, blood-group chips for A+, A−, B+, B−, O+, O−, AB+, and AB−, availability indicators, donor detail sheets, no-login profile creation, system photo-picker integration, local profile caching, public phone details, and a safe `ACTION_DIAL` handoff. Contacts, call logs, SMS, and direct-call permissions are not requested.
+The APK connects to Supabase project `whvrmzfesmdmwmkxtcsg` through its public REST and Storage APIs. It includes shared donor cards, name search, blood-group chips for A+, A−, B+, B−, O+, O−, AB+, and AB−, availability indicators, donor detail sheets, no-login profile creation, phone-number-based profile restore after reinstall, system photo-picker integration, local profile caching, public phone details, and a safe `ACTION_DIAL` handoff. Contacts, call logs, SMS, and direct-call permissions are not requested.
 
-A profile requires a name, age between 18 and 70, blood group, and phone number. A profile photo is optional; the app uses initials as an accessible fallback when no photo is chosen. Phone numbers are intentionally visible because this is a KADU union-use directory.
+A profile requires a name, age between 18 and 70, blood group, and phone number. A profile photo is optional; the app uses initials as an accessible fallback when no photo is chosen. Phone numbers are intentionally visible because this is a KADU union-use directory. After reinstall, choose **I HAVE A PROFILE** and enter the same phone number; the app loads the matching shared profile and hides it from the donor list. If no record matches, choose **CREATE NEW PROFILE** instead.
 
 ## Build
 

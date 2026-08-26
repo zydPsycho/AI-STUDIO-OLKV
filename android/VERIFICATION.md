@@ -18,7 +18,7 @@ Result: `BUILD SUCCESSFUL`.
 | Check | Result |
 | --- | --- |
 | Package | `com.blackmark.bloodlink` |
-| Version | `1.1` / version code `2` |
+| Version | `1.2` / version code `3` |
 | Compile and target SDK | 35 |
 | Minimum SDK | 26 |
 | Launcher activity | `com.blackmark.bloodlink.MainActivity` |
@@ -26,11 +26,11 @@ Result: `BUILD SUCCESSFUL`.
 | Requested runtime permissions | No runtime permissions; manifest contains `INTERNET` and the generated AndroidX internal receiver permission |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
 | APK size | Approximately 20 MB |
-| SHA-256 | `793c596cc8cbba902d94df6856e663cef6dd71c93b6f8d731944fb38615c1e55` |
+| SHA-256 | `4fd09d37328cba4e677b329677acdde88cd757c98c20f9311f871fbc99bd00ac` |
 
 ## Functional scope verified by compilation and code review
 
-The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android build-time Supabase configuration loading, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
+The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android build-time Supabase configuration loading, phone-number-based profile restore after reinstall, duplicate normalized-phone cleanup and unique-index protection, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
 
 ## Shared backend
 

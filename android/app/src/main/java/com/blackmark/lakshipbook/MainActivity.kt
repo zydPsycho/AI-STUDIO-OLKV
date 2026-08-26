@@ -141,12 +141,17 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
     var selectedDonor by remember { mutableStateOf<Donor?>(null) }
     var editingDonor by remember { mutableStateOf<Donor?>(null) }
     var showEditor by rememberSaveable { mutableStateOf(false) }
+    var showRecovery by rememberSaveable { mutableStateOf(false) }
+    var showProfileChoice by rememberSaveable { mutableStateOf(false) }
     var showAlertEditor by rememberSaveable { mutableStateOf(false) }
     var selectedAlert by remember { mutableStateOf<EmergencyAlert?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(error) {
         error?.let { snackbar.showSnackbar(it) }
+    }
+    LaunchedEffect(Unit) {
+        if (currentDonorId == null) showProfileChoice = true
     }
 
     Scaffold(
@@ -197,6 +202,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
                 AppTab.PROFILE -> MyProfileScreen(
                     donor = donors.firstOrNull { it.id == currentDonorId },
                     onCreateProfile = { editingDonor = null; showEditor = true },
+                    onRecoverProfile = { showRecovery = true },
                 )
                 AppTab.SETTINGS -> SettingsScreen(
                     donor = donors.firstOrNull { it.id == currentDonorId },
@@ -208,6 +214,24 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
         }
     }
 
+    if (showProfileChoice) {
+        ProfileChoiceDialog(
+            onCreate = { showProfileChoice = false; editingDonor = null; showEditor = true },
+            onRecover = { showProfileChoice = false; showRecovery = true },
+        )
+    }
+    if (showRecovery) {
+        ProfileRecoveryEditor(
+            errorText = error,
+            onDismiss = { showRecovery = false },
+            onCreateNew = { showRecovery = false; editingDonor = null; showEditor = true },
+            onRecover = { phone ->
+                viewModel.recoverProfile(phone) { success, _ ->
+                    if (success) { showRecovery = false; selectedTab = AppTab.PROFILE }
+                }
+            },
+        )
+    }
     if (showAlertEditor) {
         EmergencyAlertEditor(
             senderName = donors.firstOrNull { it.id == currentDonorId }?.name.orEmpty(),
@@ -455,11 +479,41 @@ private fun playEmergencyTone(context: Context) {
 private fun DetailRow(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) { Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, Modifier.size(21.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)); Column { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge) } } }
 
 @Composable
-private fun MyProfileScreen(donor: Donor?, onCreateProfile: () -> Unit, onEdit: () -> Unit = {}, onDelete: () -> Unit = {}) {
+private fun ProfileChoiceDialog(onCreate: () -> Unit, onRecover: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text("Choose your profile option") },
+        text = { Text("Do you want to create a new KADU donor profile, or restore a profile that already uses your phone number?") },
+        confirmButton = { Button(onClick = onCreate) { Text("CREATE NEW PROFILE") } },
+        dismissButton = { OutlinedButton(onClick = onRecover) { Text("I HAVE A PROFILE") } },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileRecoveryEditor(errorText: String?, onDismiss: () -> Unit, onCreateNew: () -> Unit, onRecover: (String) -> Unit) {
+    var phone by rememberSaveable { mutableStateOf("") }
+    var localError by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(errorText) { if (errorText != null) localError = errorText }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("I have a profile", style = MaterialTheme.typography.headlineSmall); Text("Load your existing KADU profile", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }; IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close") } } }
+            item { Text("Enter the phone number already saved in the KADU directory. If it exists, that profile will be loaded on this device and removed from your donor list.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { FormField("Phone number", phone, keyboardType = KeyboardType.Phone) { phone = it; localError = null } }
+            if (localError != null) item { Text(localError.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            item { Button(onClick = { if (phone.filter(Char::isDigit).length < 7) localError = "Please enter a valid phone number." else onRecover(phone.trim()) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.Person, null); Spacer(Modifier.width(8.dp)); Text("LOAD MY PROFILE") } }
+            item { OutlinedButton(onClick = onCreateNew, Modifier.fillMaxWidth()) { Text("CREATE NEW PROFILE INSTEAD") } }
+            item { Text("If no profile matches this number, create a new profile instead.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+@Composable
+private fun MyProfileScreen(donor: Donor?, onCreateProfile: () -> Unit, onRecoverProfile: () -> Unit, onEdit: () -> Unit = {}, onDelete: () -> Unit = {}) {
     if (donor == null) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { ScreenHeader("Your profile", "Add your KADU donor card", "Your profile will be visible in the shared directory") }
-            item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(24.dp)) { Column(Modifier.padding(22.dp)) { Icon(Icons.Filled.PersonAdd, null, Modifier.size(34.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(12.dp)); Text("Help your union find you.", style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(6.dp)); Text("Add your name, age, blood group, phone number and photo. All member details are visible because this directory is for KADU union use only.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(18.dp)); Button(onClick = onCreateProfile, Modifier.fillMaxWidth().height(50.dp)) { Text("CREATE MY PROFILE") } } } }
+            item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(24.dp)) { Column(Modifier.padding(22.dp)) { Icon(Icons.Filled.PersonAdd, null, Modifier.size(34.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(12.dp)); Text("Help your union find you.", style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(6.dp)); Text("Add your name, age, blood group, phone number and photo. All member details are visible because this directory is for KADU union use only.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(18.dp)); Button(onClick = onCreateProfile, Modifier.fillMaxWidth().height(50.dp)) { Text("CREATE MY PROFILE") }; Spacer(Modifier.height(8.dp)); OutlinedButton(onClick = onRecoverProfile, Modifier.fillMaxWidth()) { Text("RESTORE EXISTING PROFILE") } } } }
         }
         return
     }
@@ -560,11 +614,16 @@ private fun copyPickedImage(context: Context, uri: Uri): String {
 
 private fun Donor.matchesOwner(owner: Donor?): Boolean {
     if (owner == null) return false
-    val phoneDigits = phone.filter(Char::isDigit)
-    val ownerPhoneDigits = owner.phone.filter(Char::isDigit)
+    val phoneDigits = directoryNormalizedPhone(phone)
+    val ownerPhoneDigits = directoryNormalizedPhone(owner.phone)
     val normalizedName = name.trim().replace(Regex("\\s+"), " ")
     val normalizedOwnerName = owner.name.trim().replace(Regex("\\s+"), " ")
     return id == owner.id || (phoneDigits.length >= 7 && phoneDigits == ownerPhoneDigits && normalizedName.equals(normalizedOwnerName, ignoreCase = true))
+}
+
+private fun directoryNormalizedPhone(phone: String): String {
+    val digits = phone.filter(Char::isDigit)
+    return if (digits.length >= 10) digits.takeLast(10) else digits
 }
 
 private fun initials(name: String): String = name.trim().split(Regex("\\s+"))

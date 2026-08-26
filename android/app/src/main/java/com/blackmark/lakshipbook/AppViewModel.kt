@@ -142,6 +142,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun recoverProfile(phone: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            _error.value = null
+            runCatching {
+                val availableDonors = if (_donors.value.isEmpty()) {
+                    repository.fetchDonors().also {
+                        _donors.value = it
+                        store.saveDonors(it)
+                    }
+                } else _donors.value
+                val normalizedPhone = normalizedPhone(phone)
+                availableDonors.firstOrNull { donor -> normalizedPhone(donor.phone) == normalizedPhone }
+                    ?: throw IllegalArgumentException("No KADU profile was found with that phone number. Create a new profile if this number is not registered.")
+            }.onSuccess { candidate ->
+                _currentDonorId.value = candidate.id
+                store.saveCurrentDonorId(candidate.id)
+                refreshAlerts()
+                onResult(true, null)
+            }.onFailure { error ->
+                val message = error.message ?: "Could not restore your profile."
+                _error.value = message
+                onResult(false, message)
+            }
+            _isSyncing.value = false
+        }
+    }
+
     fun deleteLocalProfile(id: String) {
         val next = _donors.value.filterNot { it.id == id }
         _donors.value = next
@@ -172,8 +200,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 private fun Donor.samePersonAs(other: Donor): Boolean {
-    val normalizedPhone = phone.filter(Char::isDigit)
-    val normalizedOtherPhone = other.phone.filter(Char::isDigit)
+    val normalizedPhone = normalizedPhone(phone)
+    val normalizedOtherPhone = normalizedPhone(other.phone)
     return normalizedPhone.length >= 7 && normalizedPhone == normalizedOtherPhone &&
         name.trim().replace(Regex("\\s+"), " ").equals(other.name.trim().replace(Regex("\\s+"), " "), ignoreCase = true)
+}
+
+private fun normalizedPhone(phone: String): String {
+    val digits = phone.filter(Char::isDigit)
+    return if (digits.length >= 10) digits.takeLast(10) else digits
 }
