@@ -59,7 +59,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun saveDonor(donor: Donor) {
+    fun saveDonor(donor: Donor, onResult: (success: Boolean, duplicatePhone: Boolean) -> Unit = { _, _ -> }) {
         val localDonor = donor.copy(isSample = false)
         val optimistic = _donors.value.filterNot { it.id == localDonor.id } + localDonor
         _donors.value = optimistic
@@ -77,13 +77,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 store.saveDonors(next)
                 _currentDonorId.value = syncedDonor.id
                 store.saveCurrentDonorId(syncedDonor.id)
+                onResult(true, false)
             }.onFailure { error ->
                 val next = _donors.value.filterNot { it.id == localDonor.id }
                 _donors.value = next
                 store.saveDonors(next)
                 _currentDonorId.value = null
                 store.saveCurrentDonorId(null)
-                _error.value = error.message ?: "We could not publish your profile. Please try again."
+                val duplicatePhone = error.message.orEmpty().contains("kadu_donors_normalized_phone_uidx") || error.message.orEmpty().contains("duplicate key")
+                _error.value = if (duplicatePhone) "A KADU profile already uses this phone number. Load that existing profile instead." else error.message ?: "We could not publish your profile. Please try again."
+                onResult(false, duplicatePhone)
             }
             _isSyncing.value = false
         }

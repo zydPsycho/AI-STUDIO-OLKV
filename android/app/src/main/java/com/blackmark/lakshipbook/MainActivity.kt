@@ -142,6 +142,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
     var editingDonor by remember { mutableStateOf<Donor?>(null) }
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var showRecovery by rememberSaveable { mutableStateOf(false) }
+    var recoveryPhone by rememberSaveable { mutableStateOf("") }
     var showProfileChoice by rememberSaveable { mutableStateOf(false) }
     var showAlertEditor by rememberSaveable { mutableStateOf(false) }
     var selectedAlert by remember { mutableStateOf<EmergencyAlert?>(null) }
@@ -222,6 +223,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
     }
     if (showRecovery) {
         ProfileRecoveryEditor(
+            initialPhone = recoveryPhone,
             errorText = error,
             onDismiss = { showRecovery = false },
             onCreateNew = { showRecovery = false; editingDonor = null; showEditor = true },
@@ -249,9 +251,10 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
             initial = editingDonor,
             onDismiss = { showEditor = false },
             onSave = { donor ->
-                viewModel.saveDonor(donor)
-                showEditor = false
-                selectedTab = AppTab.PROFILE
+                viewModel.saveDonor(donor) { success, duplicatePhone ->
+                    if (success) { showEditor = false; selectedTab = AppTab.PROFILE }
+                    else if (duplicatePhone) { recoveryPhone = donor.phone; showEditor = false; showRecovery = true }
+                }
             },
         )
     }
@@ -491,8 +494,8 @@ private fun ProfileChoiceDialog(onCreate: () -> Unit, onRecover: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileRecoveryEditor(errorText: String?, onDismiss: () -> Unit, onCreateNew: () -> Unit, onRecover: (String) -> Unit) {
-    var phone by rememberSaveable { mutableStateOf("") }
+private fun ProfileRecoveryEditor(initialPhone: String, errorText: String?, onDismiss: () -> Unit, onCreateNew: () -> Unit, onRecover: (String) -> Unit) {
+    var phone by rememberSaveable(initialPhone) { mutableStateOf(initialPhone) }
     var localError by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(errorText) { if (errorText != null) localError = errorText }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {

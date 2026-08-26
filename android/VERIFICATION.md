@@ -26,11 +26,11 @@ Result: `BUILD SUCCESSFUL`.
 | Requested runtime permissions | No runtime permissions; manifest contains `INTERNET` and the generated AndroidX internal receiver permission |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
 | APK size | Approximately 20 MB |
-| SHA-256 | `4fd09d37328cba4e677b329677acdde88cd757c98c20f9311f871fbc99bd00ac` |
+| SHA-256 | `fe08019b8fabe569164189e7fdff460153a9ba0179e1a3ff1a715d56dba58453` |
 
 ## Functional scope verified by compilation and code review
 
-The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android build-time Supabase configuration loading, phone-number-based profile restore after reinstall, duplicate normalized-phone cleanup and unique-index protection, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
+The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android build-time Supabase configuration loading, phone-number-based profile restore after reinstall, duplicate-phone error recovery, duplicate normalized-phone cleanup and unique-index protection, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
 
 ## Shared backend
 
