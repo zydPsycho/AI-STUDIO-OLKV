@@ -26,11 +26,11 @@ Result: `BUILD SUCCESSFUL`.
 | Requested runtime permissions | No runtime permissions; manifest contains `INTERNET` and the generated AndroidX internal receiver permission |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
 | APK size | Approximately 20 MB |
-| SHA-256 | `b487f59812902f3d87d6a63398b2fb0113669c3a90c3bded99e6ecf2654bcb27` |
+| SHA-256 | `e2732151ca0cf0c2471e694347ed8564c27eeefa278d4d6b62d64c7d9995edf8` |
 
 ## Functional scope verified by compilation and code review
 
-The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, reliable remote photo rendering, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
+The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android emergency-alert creation and feed, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, web emergency-alert creation and feed, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
 
 ## Public deployment
 
@@ -39,8 +39,8 @@ The project contains the shared KADU donor directory, name search, blood-group f
 | Supabase project | `whvrmzfesmdmwmkxtcsg` |
 | Supabase donor read smoke test | HTTP 200; empty directory at first deployment |
 | Vercel production URL | https://bloodlink-by-kadu.vercel.app |
-| GitHub release commit | `c48de02` |
+| GitHub release commit | Updated in the next commit after the photo and owner-filter fix |
 
 ## Asset and privacy notes
 
-The bundled visual assets are the BLOODLINK by KADU blood-drop launcher vector and the matching web favicon. Profile photos are selected by the user and uploaded to the public Supabase `kadu-donor-photos` bucket. The app does not request contacts, SMS, call logs, or direct-call permission. Because there is no login, the APK and public URL must be distributed only within KADU; Supabase public policies allow anonymous donor reads, inserts, and availability updates by design. Each device locally tracks one profile and hides it from that device’s donor list.
+The bundled visual assets are the BLOODLINK by KADU blood-drop launcher vector and the matching web favicon. Profile photos are selected by the user and uploaded to the public Supabase `kadu-donor-photos` bucket. The app does not request contacts, SMS, call logs, or direct-call permission. Because there is no login, the APK and public URL must be distributed only within KADU; Supabase public policies allow anonymous donor reads, inserts, and availability updates by design. Each device locally tracks one profile and hides it from that device’s donor list. Closed-app push delivery is not enabled in this build because Firebase `google-services.json` and a trusted Firebase service-account secret have not been supplied; alerts are currently available through the in-app feed and refresh flow.

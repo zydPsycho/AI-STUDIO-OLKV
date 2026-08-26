@@ -45,6 +45,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 withContext(Dispatchers.IO) { repository.fetchDonors() }
             }.onSuccess { remoteDonors ->
+                val resolvedOwner = resolveOwner(remoteDonors)
+                val resolvedOwnerId = resolvedOwner?.id
+                _currentDonorId.value = resolvedOwnerId
+                store.saveCurrentDonorId(resolvedOwnerId)
                 _donors.value = remoteDonors
                 store.saveDonors(remoteDonors)
             }.onFailure { error ->
@@ -148,7 +152,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _currentDonorId.value = null
     }
 
+    private fun resolveOwner(remoteDonors: List<Donor>): Donor? {
+        val savedOwner = _donors.value.firstOrNull { it.id == _currentDonorId.value }
+        return remoteDonors.firstOrNull { it.id == _currentDonorId.value }
+            ?: savedOwner?.let { cached ->
+                remoteDonors.firstOrNull { it.samePersonAs(cached) }
+            }
+    }
+
     fun dismissError() {
         _error.value = null
     }
+}
+
+private fun Donor.samePersonAs(other: Donor): Boolean {
+    val normalizedPhone = phone.filter(Char::isDigit)
+    val normalizedOtherPhone = other.phone.filter(Char::isDigit)
+    return normalizedPhone.length >= 7 && normalizedPhone == normalizedOtherPhone &&
+        name.trim().replace(Regex("\\s+"), " ").equals(other.name.trim().replace(Regex("\\s+"), " "), ignoreCase = true)
 }

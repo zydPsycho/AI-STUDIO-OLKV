@@ -2,6 +2,7 @@ package com.blackmark.bloodlink
 
 import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,6 +86,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -105,9 +108,14 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blackmark.bloodlink.data.BloodGroups
 import com.blackmark.bloodlink.data.Donor
+import com.blackmark.bloodlink.data.EmergencyAlert
 import com.blackmark.bloodlink.ui.theme.BloodLinkTheme
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<AppViewModel>()
@@ -120,11 +128,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class AppTab(val label: String) { DONORS("Donors"), PROFILE("My profile"), SETTINGS("Settings") }
+private enum class AppTab(val label: String) { DONORS("Donors"), ALERTS("Alerts"), PROFILE("My profile"), SETTINGS("Settings") }
 
 @Composable
 private fun BloodLinkRoot(viewModel: AppViewModel) {
     val donors by viewModel.donors.collectAsStateWithLifecycle()
+    val alerts by viewModel.alerts.collectAsStateWithLifecycle()
     val currentDonorId by viewModel.currentDonorId.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
@@ -132,6 +141,8 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
     var selectedDonor by remember { mutableStateOf<Donor?>(null) }
     var editingDonor by remember { mutableStateOf<Donor?>(null) }
     var showEditor by rememberSaveable { mutableStateOf(false) }
+    var showAlertEditor by rememberSaveable { mutableStateOf(false) }
+    var selectedAlert by remember { mutableStateOf<EmergencyAlert?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(error) {
@@ -152,6 +163,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
                             Icon(
                                 when (tab) {
                                     AppTab.DONORS -> Icons.Filled.Bloodtype
+                                    AppTab.ALERTS -> Icons.Filled.WarningAmber
                                     AppTab.PROFILE -> Icons.Filled.Person
                                     AppTab.SETTINGS -> Icons.Filled.Info
                                 },
@@ -175,6 +187,13 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
                     onCreateProfile = { editingDonor = null; showEditor = true },
                     onOpenMyProfile = { selectedTab = AppTab.PROFILE },
                 )
+                AppTab.ALERTS -> EmergencyAlertsScreen(
+                    alerts = alerts,
+                    isSyncing = isSyncing,
+                    onRefresh = viewModel::refreshAlerts,
+                    onCreate = { showAlertEditor = true },
+                    onOpenAlert = { selectedAlert = it },
+                )
                 AppTab.PROFILE -> MyProfileScreen(
                     donor = donors.firstOrNull { it.id == currentDonorId },
                     onCreateProfile = { editingDonor = null; showEditor = true },
@@ -189,6 +208,18 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
         }
     }
 
+    if (showAlertEditor) {
+        EmergencyAlertEditor(
+            senderName = donors.firstOrNull { it.id == currentDonorId }?.name.orEmpty(),
+            senderPhone = donors.firstOrNull { it.id == currentDonorId }?.phone.orEmpty(),
+            onDismiss = { showAlertEditor = false },
+            onPublish = { alert ->
+                viewModel.publishAlert(alert)
+                showAlertEditor = false
+                selectedTab = AppTab.ALERTS
+            },
+        )
+    }
     if (showEditor) {
         DonorEditor(
             initial = editingDonor,
@@ -201,6 +232,7 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
         )
     }
     selectedDonor?.let { donor -> DonorDetailSheet(donor, onDismiss = { selectedDonor = null }) }
+    selectedAlert?.let { alert -> EmergencyAlertDetailSheet(alert, onDismiss = { selectedAlert = null }) }
 }
 
 @Composable
@@ -221,7 +253,7 @@ private fun DonorDirectoryScreen(donors: List<Donor>, currentDonor: Donor?, isSy
     var search by rememberSaveable { mutableStateOf("") }
     var selectedGroup by rememberSaveable { mutableStateOf("All") }
     val filtered = donors.filter { donor ->
-        donor.id != currentDonor?.id &&
+        !donor.matchesOwner(currentDonor) &&
             (search.isBlank() || donor.name.contains(search, true)) &&
             (selectedGroup == "All" || donor.bloodGroup == selectedGroup)
     }
@@ -324,6 +356,102 @@ private fun DonorDetailSheet(donor: Donor, onDismiss: () -> Unit) {
 }
 
 @Composable
+private fun EmergencyAlertsScreen(
+    alerts: List<EmergencyAlert>,
+    isSyncing: Boolean,
+    onRefresh: () -> Unit,
+    onCreate: () -> Unit,
+    onOpenAlert: (EmergencyAlert) -> Unit,
+) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            ScreenHeader(
+                "KADU emergency network",
+                "Emergency alerts",
+                "Broadcast an urgent blood request to the KADU community.",
+                action = { IconButton(onClick = onRefresh) { if (isSyncing) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Filled.Refresh, "Refresh alerts") } },
+            )
+        }
+        item {
+            Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Column(Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(30.dp)); Spacer(Modifier.width(10.dp)); Text("Need blood urgently?", style = MaterialTheme.typography.titleLarge) }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Create one alert with the patient, hospital, blood group and contact details. KADU members can call you directly.", color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onCreate, Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(8.dp)); Text("CREATE EMERGENCY ALERT") }
+                }
+            }
+        }
+        item { Text("Active alerts", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleLarge) }
+        if (alerts.isEmpty()) {
+            item { Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Filled.CheckCircle, null, Modifier.size(38.dp), tint = MaterialTheme.colorScheme.secondary); Spacer(Modifier.height(10.dp)); Text("No active emergency alerts", style = MaterialTheme.typography.titleMedium); Text("The KADU community has no current blood requests.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+        } else {
+            items(alerts, key = { it.id }) { alert -> EmergencyAlertCard(alert, onClick = { onOpenAlert(alert) }) }
+        }
+        item { Text("Alerts are for KADU union coordination. For life-threatening situations, contact the hospital or emergency services directly.", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}
+
+@Composable
+private fun EmergencyAlertCard(alert: EmergencyAlert, onClick: () -> Unit) {
+    Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.Top) { Column(Modifier.weight(1f)) { Text("${alert.requiredBloodGroup} blood needed", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error); Text("${alert.unitsNeeded} unit${if (alert.unitsNeeded == 1) "" else "s"} · ${alert.emergencyType}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Icon(Icons.Filled.WarningAmber, null, tint = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.height(12.dp)); Text("Patient: ${alert.patientName}", style = MaterialTheme.typography.titleMedium); Text("Admitted at: ${alert.admittedIn}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(10.dp)); Text("Posted by ${alert.senderName}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(10.dp)); OutlinedButton(onClick = onClick, Modifier.fillMaxWidth()) { Text("VIEW ALERT & CONTACT") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EmergencyAlertEditor(senderName: String, senderPhone: String, onDismiss: () -> Unit, onPublish: (EmergencyAlert) -> Unit) {
+    var author by rememberSaveable(senderName) { mutableStateOf(senderName) }
+    var phone by rememberSaveable(senderPhone) { mutableStateOf(senderPhone) }
+    var patient by rememberSaveable { mutableStateOf("") }
+    var hospital by rememberSaveable { mutableStateOf("") }
+    var emergencyType by rememberSaveable { mutableStateOf("") }
+    var bloodGroup by rememberSaveable { mutableStateOf("") }
+    var units by rememberSaveable { mutableStateOf("1") }
+    var notes by rememberSaveable { mutableStateOf("") }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("Create emergency alert", style = MaterialTheme.typography.headlineSmall); Text("Broadcast to KADU members", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }; IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close") } } }
+            item { FormField("Your name", author) { author = it; error = null } }
+            item { FormField("Your phone number", phone, keyboardType = KeyboardType.Phone) { phone = it; error = null } }
+            item { FormField("Patient name", patient) { patient = it; error = null } }
+            item { FormField("Admitted hospital / location", hospital) { hospital = it; error = null } }
+            item { FormField("Emergency type", emergencyType) { emergencyType = it; error = null } }
+            item { Column { Text("Required blood group", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(5.dp)); LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(BloodGroups) { group -> FilterChip(bloodGroup == group, { bloodGroup = group; error = null }, label = { Text(group) }) } } } }
+            item { FormField("Units needed (1–20)", units, keyboardType = KeyboardType.Number) { units = it.filter(Char::isDigit); error = null } }
+            item { OutlinedTextField(value = notes, onValueChange = { notes = it }, Modifier.fillMaxWidth(), label = { Text("Notes (optional)") }, minLines = 3, maxLines = 5, shape = RoundedCornerShape(14.dp)) }
+            if (error != null) item { Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            item { Button(onClick = { val parsedUnits = units.toIntOrNull(); error = when { author.trim().length < 2 -> "Please enter your name."; phone.filter(Char::isDigit).length < 7 -> "Please enter a valid phone number."; patient.trim().length < 2 -> "Please enter the patient name."; hospital.trim().length < 2 -> "Please enter the admitted hospital or location."; emergencyType.trim().length < 2 -> "Please enter the emergency type."; bloodGroup !in BloodGroups -> "Please select the required blood group."; parsedUnits == null || parsedUnits !in 1..20 -> "Units must be between 1 and 20."; else -> null }; if (error == null) onPublish(EmergencyAlert(senderName = author.trim(), senderPhone = phone.trim(), patientName = patient.trim(), admittedIn = hospital.trim(), emergencyType = emergencyType.trim(), requiredBloodGroup = bloodGroup, unitsNeeded = parsedUnits!!, notes = notes.trim())) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.WarningAmber, null); Spacer(Modifier.width(8.dp)); Text("BROADCAST ALERT") } }
+            item { Text("Only create an alert for a genuine urgent blood requirement. Your name and phone number will be visible to KADU members.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EmergencyAlertDetailSheet(alert: EmergencyAlert, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 20.dp)) {
+            Row(verticalAlignment = Alignment.Top) { Column(Modifier.weight(1f)) { Text("Emergency blood request", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.error); Text("${alert.requiredBloodGroup} · ${alert.unitsNeeded} unit${if (alert.unitsNeeded == 1) "" else "s"}", style = MaterialTheme.typography.titleMedium) }; Icon(Icons.Filled.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp)) }
+            Spacer(Modifier.height(18.dp)); DetailRow("Patient", alert.patientName, Icons.Filled.Person); DetailRow("Admitted in", alert.admittedIn, Icons.Filled.LocationOn); DetailRow("Emergency", alert.emergencyType, Icons.Filled.WarningAmber); if (alert.notes.isNotBlank()) DetailRow("Notes", alert.notes, Icons.Filled.Info); DetailRow("Alert sender", "${alert.senderName} · ${alert.senderPhone}", Icons.Filled.Phone)
+            Spacer(Modifier.height(16.dp)); Button(onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${alert.senderPhone}"))) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.Call, null); Spacer(Modifier.width(8.dp)); Text("I CAN HELP · CALL ${alert.senderName.uppercase()}") }; Spacer(Modifier.height(10.dp)); OutlinedButton(onClick = { playEmergencyTone(context) }, Modifier.fillMaxWidth()) { Icon(Icons.Filled.VolumeUp, null); Spacer(Modifier.width(8.dp)); Text("PLAY EMERGENCY TONE") }; Spacer(Modifier.height(10.dp)); OutlinedButton(onClick = onDismiss, Modifier.fillMaxWidth()) { Text("CLOSE") }
+        }
+    }
+}
+
+private fun playEmergencyTone(context: Context) {
+    MediaPlayer.create(context, com.blackmark.bloodlink.R.raw.emergency_alert)?.also { player -> player.setOnCompletionListener { it.release() }; player.start() }
+}
+
+@Composable
 private fun DetailRow(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) { Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, Modifier.size(21.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)); Column { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge) } } }
 
 @Composable
@@ -379,13 +507,41 @@ private fun PhotoPickerAvatar(imageUri: String, name: String, onClick: () -> Uni
 
 @Composable
 private fun ProfileAvatar(donor: Donor, size: androidx.compose.ui.unit.Dp) {
-    if (donor.imageUri.isNotBlank()) {
-        val context = LocalContext.current
-        val request = remember(donor.imageUri) { ImageRequest.Builder(context).data(donor.imageUri).crossfade(true).allowHardware(false).build() }
+    val context = LocalContext.current
+    val cachedPhoto by produceState<String?>(initialValue = null, key1 = donor.imageUri) {
+        value = if (donor.imageUri.isBlank()) null else withContext(Dispatchers.IO) { cachePhoto(context, donor.imageUri) }
+    }
+    if (cachedPhoto != null) {
+        val request = remember(cachedPhoto) { ImageRequest.Builder(context).data(cachedPhoto).crossfade(true).allowHardware(false).build() }
         AsyncImage(model = request, contentDescription = "Profile photo of ${donor.name}", modifier = Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop)
     } else {
         Surface(modifier = Modifier.size(size), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text(initials(donor.name), style = if (size > 80.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold) } }
     }
+}
+
+private fun cachePhoto(context: Context, source: String): String? {
+    if (source.startsWith("file:") || source.startsWith("content:")) return source
+    if (!source.startsWith("https://") && !source.startsWith("http://")) return null
+    val target = File(context.cacheDir, "bloodlink-photo-${Integer.toHexString(source.hashCode())}.img")
+    if (target.exists() && target.length() > 0L) return Uri.fromFile(target).toString()
+    return runCatching {
+        val connection = (URL(source).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15_000
+            readTimeout = 20_000
+            requestMethod = "GET"
+            setRequestProperty("Accept", "image/*")
+        }
+        try {
+            if (connection.responseCode !in 200..299) return null
+            val temporary = File(target.parentFile, "${target.name}.part")
+            connection.inputStream.use { input -> temporary.outputStream().use { output -> input.copyTo(output) } }
+            if (temporary.length() == 0L) { temporary.delete(); return null }
+            if (!temporary.renameTo(target)) { temporary.copyTo(target, overwrite = true); temporary.delete() }
+            Uri.fromFile(target).toString()
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
 }
 
 private fun copyPickedImage(context: Context, uri: Uri): String {
@@ -402,7 +558,17 @@ private fun copyPickedImage(context: Context, uri: Uri): String {
     }.getOrElse { uri.toString() }
 }
 
-private fun initials(name: String): String = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "?" }
+private fun Donor.matchesOwner(owner: Donor?): Boolean {
+    if (owner == null) return false
+    val phoneDigits = phone.filter(Char::isDigit)
+    val ownerPhoneDigits = owner.phone.filter(Char::isDigit)
+    val normalizedName = name.trim().replace(Regex("\\s+"), " ")
+    val normalizedOwnerName = owner.name.trim().replace(Regex("\\s+"), " ")
+    return id == owner.id || (phoneDigits.length >= 7 && phoneDigits == ownerPhoneDigits && normalizedName.equals(normalizedOwnerName, ignoreCase = true))
+}
+
+private fun initials(name: String): String = name.trim().split(Regex("\\s+"))
+.filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "?" }
 
 @Composable
 private fun SettingsScreen(donor: Donor?, isSyncing: Boolean, onRefresh: () -> Unit, onAvailabilityChanged: (Donor, Boolean) -> Unit) {

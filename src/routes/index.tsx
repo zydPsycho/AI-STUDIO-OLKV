@@ -15,6 +15,30 @@ type Donor = {
   is_available: boolean;
 };
 
+type Alert = {
+  id: string;
+  sender_name: string;
+  sender_phone: string;
+  patient_name: string;
+  admitted_in: string;
+  emergency_type: string;
+  required_blood_group: string;
+  units_needed: number;
+  notes: string | null;
+  created_at?: string;
+};
+
+type AlertFormState = {
+  sender_name: string;
+  sender_phone: string;
+  patient_name: string;
+  admitted_in: string;
+  emergency_type: string;
+  required_blood_group: string;
+  units_needed: string;
+  notes: string;
+};
+
 type FormState = {
   name: string;
   age: string;
@@ -32,13 +56,30 @@ function initials(name: string) {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
 }
 
+function sameOwner(a: Donor, b?: Donor) {
+  if (!b) return false;
+  const phoneA = a.phone.replace(/\D/g, "");
+  const phoneB = b.phone.replace(/\D/g, "");
+  const nameA = a.name.trim().replace(/\s+/g, " ");
+  const nameB = b.name.trim().replace(/\s+/g, " ");
+  return a.id === b.id || (phoneA.length >= 7 && phoneA === phoneB && nameA.toLowerCase() === nameB.toLowerCase());
+}
+
 function emptyForm(): FormState {
   return { name: "", age: "", blood_group: "", phone: "", is_available: true, photoFile: null, photoPreview: "" };
 }
 
+function emptyAlertForm(sender?: Donor): AlertFormState {
+  return { sender_name: sender?.name || "", sender_phone: sender?.phone || "", patient_name: "", admitted_in: "", emergency_type: "", required_blood_group: "", units_needed: "1", notes: "" };
+}
+
 function BloodLinkHome() {
-  const [tab, setTab] = useState<"directory" | "profile" | "settings">("directory");
+  const [tab, setTab] = useState<"directory" | "alerts" | "profile" | "settings">("directory");
   const [donors, setDonors] = useState<Donor[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [alertForm, setAlertForm] = useState<AlertFormState>(emptyAlertForm);
+  const [alertSaving, setAlertSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("All");
   const [selected, setSelected] = useState<Donor | null>(null);
@@ -49,6 +90,12 @@ function BloodLinkHome() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  async function loadAlerts() {
+    const { data, error: readError } = await DB.from("kadu_emergency_alerts").select("id,sender_name,sender_phone,patient_name,admitted_in,emergency_type,required_blood_group,units_needed,notes,created_at").eq("is_active", true).order("created_at", { ascending: false }).limit(100);
+    if (readError) setError("Emergency alerts are temporarily unavailable. Please try again.");
+    else setAlerts((data || []) as Alert[]);
+  }
+
   async function loadDonors() {
     setLoading(true);
     setError("");
@@ -58,16 +105,35 @@ function BloodLinkHome() {
     setLoading(false);
   }
 
-  useEffect(() => { void loadDonors(); }, []);
+  useEffect(() => { void loadDonors(); void loadAlerts(); }, []);
   useEffect(() => { setMyDonorId(window.localStorage.getItem("kadu-donor-id") || ""); }, []);
 
+  const myDonor = donors.find((donor) => donor.id === myDonorId);
+  const cachedOwner = myDonor;
+  useEffect(() => {
+    if (myDonor) setAlertForm((current) => ({ ...current, sender_name: current.sender_name || myDonor.name, sender_phone: current.sender_phone || myDonor.phone }));
+  }, [myDonor]);
   const filtered = useMemo(() => donors.filter((donor) => {
     const textMatch = !query.trim() || donor.name.toLowerCase().includes(query.trim().toLowerCase());
     const groupMatch = group === "All" || donor.blood_group === group;
-    return donor.id !== myDonorId && textMatch && groupMatch;
-  }), [donors, group, query, myDonorId]);
+    return !sameOwner(donor, cachedOwner) && donor.id !== myDonorId && textMatch && groupMatch;
+  }), [donors, group, query, myDonorId, cachedOwner]);
 
-  const myDonor = donors.find((donor) => donor.id === myDonorId);
+  async function publishAlert(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    const units = Number(alertForm.units_needed);
+    if (alertForm.sender_name.trim().length < 2 || alertForm.sender_phone.replace(/\D/g, "").length < 7 || alertForm.patient_name.trim().length < 2 || alertForm.admitted_in.trim().length < 2 || alertForm.emergency_type.trim().length < 2 || !alertForm.required_blood_group || !Number.isInteger(units) || units < 1 || units > 20) {
+      setError("Please complete the sender, patient, hospital, emergency type, blood group, and units fields.");
+      return;
+    }
+    setAlertSaving(true);
+    const { data, error: insertError } = await DB.from("kadu_emergency_alerts").insert({ union_name: "KADU", sender_name: alertForm.sender_name.trim(), sender_phone: alertForm.sender_phone.trim(), patient_name: alertForm.patient_name.trim(), admitted_in: alertForm.admitted_in.trim(), emergency_type: alertForm.emergency_type.trim(), required_blood_group: alertForm.required_blood_group, units_needed: units, notes: alertForm.notes.trim() || null, is_active: true }).select("id,sender_name,sender_phone,patient_name,admitted_in,emergency_type,required_blood_group,units_needed,notes,created_at").single();
+    if (insertError) setError("We could not broadcast the alert. Please try again.");
+    else { setAlerts((current) => [data as Alert, ...current]); setAlertForm(emptyAlertForm(myDonor)); setMessage("Emergency alert broadcast to the KADU directory."); }
+    setAlertSaving(false);
+  }
 
   async function updateAvailability(value: boolean) {
     if (!myDonorId) return;
@@ -144,20 +210,25 @@ function BloodLinkHome() {
       </header>
 
       <main className="mx-auto max-w-6xl px-5 lg:px-10">
-        {tab === "directory" && <DirectoryView donors={donors} filtered={filtered} query={query} group={group} loading={loading} myDonor={myDonor} onQuery={setQuery} onGroup={setGroup} onRefresh={loadDonors} onSelect={setSelected} onCreate={() => { setTab("profile"); window.scrollTo({ top: 0, behavior: "smooth" }); }} onOpenMyProfile={() => { setTab("profile"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
-        {tab === "profile" && <ProfileViewV2 form={form} myDonor={myDonor} saving={saving} message={message} error={error} onForm={updateForm} onPhoto={choosePhoto} onSubmit={publishProfile} onBack={() => setTab("directory")} onOpenSettings={() => setTab("settings")} />}
+                {tab === "directory" && <DirectoryView
+ donors={donors} filtered={filtered} query={query} group={group} loading={loading} myDonor={myDonor} onQuery={setQuery} onGroup={setGroup} onRefresh={loadDonors} onSelect={setSelected} onCreate={() => { setTab("profile"); window.scrollTo({ top: 0, behavior: "smooth" }); }} onOpenMyProfile={() => { setTab("profile"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
+                {tab === "alerts" && <AlertsView alerts={alerts} form={alertForm} saving={alertSaving} message={message} error={error} onForm={(key, value) => setAlertForm((current) => ({ ...current, [key]: value }))} onSubmit={publishAlert} onSelect={setSelectedAlert} onRefresh={loadAlerts} onBack={() => setTab("directory")} />}
+        {tab === "profile" && <ProfileViewV2
+ form={form} myDonor={myDonor} saving={saving} message={message} error={error} onForm={updateForm} onPhoto={choosePhoto} onSubmit={publishProfile} onBack={() => setTab("directory")} onOpenSettings={() => setTab("settings")} />}
         {tab === "settings" && <SettingsView donor={myDonor} message={message} error={error} onAvailabilityChange={updateAvailability} onBack={() => setTab("directory")} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-3 py-2 backdrop-blur sm:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
           <NavButton active={tab === "directory"} icon={<UsersRound className="size-5" />} label="Donors" onClick={() => setTab("directory")} />
+          <NavButton active={tab === "alerts"} icon={<ShieldAlert className="size-5" />} label="Alerts" onClick={() => setTab("alerts")} />
           <NavButton active={tab === "profile"} icon={<UserRound className="size-5" />} label="My profile" onClick={() => setTab("profile")} />
           <NavButton active={tab === "settings"} icon={<Info className="size-5" />} label="Settings" onClick={() => setTab("settings")} />
         </div>
       </nav>
 
       {selected && <DonorSheet donor={selected} onClose={() => setSelected(null)} />}
+      {selectedAlert && <AlertSheet alert={selectedAlert} onClose={() => setSelectedAlert(null)} />}
     </div>
   );
 }
@@ -182,6 +253,16 @@ function DonorCard({ donor, onClick }: { donor: Donor; onClick: () => void }) { 
 function Avatar({ donor, size }: { donor: Donor; size: "md" | "lg" }) { return donor.photo_url ? <img src={donor.photo_url} alt={`Profile of ${donor.name}`} className={`${size === "lg" ? "size-20" : "size-14"} shrink-0 rounded-2xl object-cover`} /> : <span className={`${size === "lg" ? "size-20 text-xl" : "size-14 text-base"} grid shrink-0 place-items-center rounded-2xl bg-primary-soft font-heading font-extrabold text-primary`}>{initials(donor.name)}</span>; }
 
 function DonorSheet({ donor, onClose }: { donor: Donor; onClose: () => void }) { return <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/35 p-0 backdrop-blur-sm sm:items-center sm:p-5" onClick={onClose}><div className="w-full max-w-lg rounded-t-[2rem] bg-surface p-6 shadow-float sm:rounded-[2rem]" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div className="flex items-center gap-4"><Avatar donor={donor} size="lg" /><div><h2 className="font-heading text-2xl font-extrabold">{donor.name}</h2><p className="text-sm text-muted-foreground">KADU · Kavaratti, Lakshadweep</p><p className="mt-2 text-xs font-bold text-accent-foreground"><span className={`mr-1.5 inline-block size-2 rounded-full ${donor.is_available ? "bg-accent" : "bg-muted-foreground/50"}`} />{donor.is_available ? "Available now" : "Not available"}</p></div></div><button onClick={onClose} className="rounded-full p-2 text-muted-foreground hover:bg-muted"><X className="size-5" /></button></div><div className="mt-6 divide-y divide-border rounded-2xl bg-background px-4"><div className="flex items-center justify-between py-4"><span className="text-sm text-muted-foreground">Blood group</span><span className="rounded-xl bg-primary-soft px-3 py-1.5 font-heading font-extrabold text-primary">{donor.blood_group}</span></div><div className="flex items-center justify-between py-4"><span className="text-sm text-muted-foreground">Age</span><span className="font-semibold">{donor.age} years</span></div><div className="flex items-center justify-between gap-6 py-4"><span className="text-sm text-muted-foreground">Phone number</span><span className="text-right font-semibold">{donor.phone}</span></div></div><a href={`tel:${donor.phone}`} className="mt-5 block rounded-2xl bg-primary px-5 py-4 text-center text-sm font-extrabold text-primary-foreground shadow-float"><Phone className="mr-2 inline size-4" />Call {donor.name}</a><p className="mt-4 text-center text-xs leading-5 text-muted-foreground">Phone numbers are visible because this is a KADU union directory. Please use contact details responsibly.</p></div></div>; }
+
+function AlertsView({ alerts, form, saving, message, error, onForm, onSubmit, onSelect, onRefresh, onBack }: { alerts: Alert[]; form: AlertFormState; saving: boolean; message: string; error: string; onForm: <K extends keyof AlertFormState>(key: K, value: AlertFormState[K]) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onSelect: (alert: Alert) => void; onRefresh: () => void; onBack: () => void }) {
+  return <div className="mx-auto max-w-4xl space-y-7 py-5 lg:py-10"><button onClick={onBack} className="text-sm font-bold text-primary">← Back to directory</button><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">KADU emergency network</p><h1 className="mt-3 font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">Emergency alerts.</h1><p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">Broadcast an urgent blood request with patient, hospital, blood group and contact details.</p></div><button onClick={onRefresh} className="rounded-2xl border border-border px-4 py-3 text-sm font-bold text-muted-foreground hover:border-primary hover:text-primary"><RefreshCw className="mr-2 inline size-4" />Refresh alerts</button></div><form onSubmit={onSubmit} className="rounded-[2rem] border border-primary/20 bg-primary-soft/40 p-5 shadow-card sm:p-7"><div className="flex items-center gap-3"><ShieldAlert className="size-7 text-primary" /><div><h2 className="font-heading text-2xl font-extrabold">Create an emergency alert</h2><p className="text-sm text-muted-foreground">Your name and phone will be visible to KADU members.</p></div></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><AlertInput label="Your name" value={form.sender_name} onChange={(value) => onForm("sender_name", value)} /><AlertInput label="Your phone number" type="tel" value={form.sender_phone} onChange={(value) => onForm("sender_phone", value)} /><AlertInput label="Patient name" value={form.patient_name} onChange={(value) => onForm("patient_name", value)} /><AlertInput label="Admitted hospital / location" value={form.admitted_in} onChange={(value) => onForm("admitted_in", value)} /><AlertInput label="Emergency type" value={form.emergency_type} onChange={(value) => onForm("emergency_type", value)} /><AlertInput label="Units needed (1–20)" type="number" min="1" max="20" value={form.units_needed} onChange={(value) => onForm("units_needed", value)} /></div><div className="mt-5"><p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Required blood group</p><div className="flex flex-wrap gap-2">{GROUPS.slice(1).map((item) => <button type="button" key={item} onClick={() => onForm("required_blood_group", item)} className={`rounded-full px-4 py-2.5 text-xs font-extrabold transition ${form.required_blood_group === item ? "bg-primary text-primary-foreground" : "bg-background text-primary hover:bg-primary/10"}`}>{item}</button>)}</div></div><label className="mt-5 block"><span className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes (optional)</span><textarea value={form.notes} onChange={(event) => onForm("notes", event.target.value)} rows={3} placeholder="Any important information for willing donors" className="w-full resize-y rounded-2xl border border-input bg-background px-4 py-3.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10" /></label>{error && <p className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">{error}</p>}{message && <p className="mt-4 rounded-xl bg-accent-soft px-4 py-3 text-sm font-semibold text-accent-foreground">{message}</p>}<button disabled={saving} className="mt-5 w-full rounded-2xl bg-primary px-5 py-4 text-sm font-extrabold text-primary-foreground shadow-float disabled:cursor-wait disabled:opacity-60">{saving ? "BROADCASTING…" : "BROADCAST ALERT TO KADU"}</button></form><section><div className="mb-4 flex items-center justify-between"><div><h2 className="font-heading text-2xl font-bold">Active alerts</h2><p className="mt-1 text-sm text-muted-foreground">{alerts.length} current request{alerts.length === 1 ? "" : "s"}</p></div></div>{alerts.length === 0 ? <div className="rounded-3xl border border-dashed border-border bg-surface p-12 text-center"><HeartPulse className="mx-auto size-10 text-primary" /><h3 className="mt-4 font-heading text-xl font-bold">No active emergency alerts</h3><p className="mt-2 text-sm text-muted-foreground">The KADU community has no current blood requests.</p></div> : <div className="grid gap-3 sm:grid-cols-2">{alerts.map((alert) => <AlertCard key={alert.id} alert={alert} onClick={() => onSelect(alert)} />)}</div>}</section><p className="text-sm leading-6 text-muted-foreground">For a life-threatening emergency, contact the hospital or emergency services directly. This alert feed is for KADU union coordination.</p></div>;
+}
+
+function AlertInput({ label, value, onChange, type = "text", min, max }: { label: string; value: string; onChange: (value: string) => void; type?: string; min?: string; max?: string }) { return <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span><input required value={value} onChange={(event) => onChange(event.target.value)} type={type} min={min} max={max} className="w-full rounded-2xl border border-input bg-background px-4 py-3.5 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10" /></label>; }
+
+function AlertCard({ alert, onClick }: { alert: Alert; onClick: () => void }) { return <button onClick={onClick} className="w-full rounded-3xl border border-destructive/25 bg-surface p-5 text-left shadow-card transition hover:-translate-y-0.5 hover:border-destructive/50"><div className="flex items-start justify-between gap-4"><div><p className="font-heading text-xl font-extrabold text-destructive">{alert.required_blood_group} blood needed</p><p className="mt-1 text-sm text-muted-foreground">{alert.units_needed} unit{alert.units_needed === 1 ? "" : "s"} · {alert.emergency_type}</p></div><ShieldAlert className="size-6 text-destructive" /></div><p className="mt-4 font-bold">Patient: {alert.patient_name}</p><p className="mt-1 text-sm text-muted-foreground">Admitted at: {alert.admitted_in}</p><p className="mt-3 text-xs font-bold text-primary">Posted by {alert.sender_name} · View & contact</p></button>; }
+
+function AlertSheet({ alert, onClose }: { alert: Alert; onClose: () => void }) { return <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/35 p-0 backdrop-blur-sm sm:items-center sm:p-5" onClick={onClose}><div className="w-full max-w-lg rounded-t-[2rem] bg-surface p-6 shadow-float sm:rounded-[2rem]" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[0.2em] text-destructive">Emergency blood request</p><h2 className="mt-2 font-heading text-3xl font-extrabold">{alert.required_blood_group} · {alert.units_needed} unit{alert.units_needed === 1 ? "" : "s"}</h2></div><button onClick={onClose} className="rounded-full p-2 text-muted-foreground hover:bg-muted"><X className="size-5" /></button></div><div className="mt-6 divide-y divide-border rounded-2xl bg-background px-4"><div className="py-4"><span className="text-sm text-muted-foreground">Patient</span><p className="mt-1 font-semibold">{alert.patient_name}</p></div><div className="py-4"><span className="text-sm text-muted-foreground">Admitted in</span><p className="mt-1 font-semibold">{alert.admitted_in}</p></div><div className="py-4"><span className="text-sm text-muted-foreground">Emergency</span><p className="mt-1 font-semibold">{alert.emergency_type}</p></div>{alert.notes && <div className="py-4"><span className="text-sm text-muted-foreground">Notes</span><p className="mt-1 font-semibold">{alert.notes}</p></div>}<div className="py-4"><span className="text-sm text-muted-foreground">Alert sender</span><p className="mt-1 font-semibold">{alert.sender_name} · {alert.sender_phone}</p></div></div><a href={`tel:${alert.sender_phone}`} className="mt-5 block rounded-2xl bg-primary px-5 py-4 text-center text-sm font-extrabold text-primary-foreground shadow-float"><Phone className="mr-2 inline size-4" />I CAN HELP · CALL {alert.sender_name}</a><p className="mt-4 text-center text-xs leading-5 text-muted-foreground">Only contact the sender if you can genuinely help with this blood request.</p></div></div>; }
 
 function ProfileViewV2({ form, myDonor, saving, message, error, onForm, onPhoto, onSubmit, onBack, onOpenSettings }: { form: FormState; myDonor?: Donor; saving: boolean; message: string; error: string; onForm: <K extends keyof FormState>(key: K, value: FormState[K]) => void; onPhoto: (file: File | undefined) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onBack: () => void; onOpenSettings: () => void }) {
   if (myDonor) return <div className="mx-auto max-w-3xl space-y-6 py-5 lg:py-10"><button onClick={onBack} className="text-sm font-bold text-primary">← Back to directory</button><div><p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">KADU member profile</p><h1 className="mt-3 font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">Your profile is live.</h1><p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">You can create one donor profile per device. Your own profile is hidden from your donor search results.</p></div><div className="rounded-[2rem] border border-border bg-surface p-5 shadow-card sm:p-7"><div className="flex items-center gap-4"><Avatar donor={myDonor} size="lg" /><div className="min-w-0 flex-1"><h2 className="font-heading text-2xl font-extrabold">{myDonor.name}</h2><p className="text-sm text-muted-foreground">{myDonor.age} years · {myDonor.blood_group} · {myDonor.phone}</p><p className="mt-2 text-xs font-bold text-accent-foreground">{myDonor.is_available ? "Available now" : "Not available"}</p></div></div><button onClick={onOpenSettings} className="mt-6 w-full rounded-2xl bg-primary px-5 py-4 text-sm font-extrabold text-primary-foreground shadow-float">UPDATE AVAILABILITY IN SETTINGS</button></div></div>;
