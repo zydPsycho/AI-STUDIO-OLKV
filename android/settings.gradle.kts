@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LakShipBook"
+rootProject.name = "BloodLinkKavaratti"
 include(":app")

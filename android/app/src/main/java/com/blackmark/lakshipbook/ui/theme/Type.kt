@@ -1,4 +1,4 @@
-package com.blackmark.lakshipbook.ui.theme
+package com.blackmark.bloodlink.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.font.FontWeight

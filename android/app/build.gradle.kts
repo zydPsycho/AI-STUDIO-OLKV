@@ -5,15 +5,19 @@ plugins {
 }
 
 android {
-    namespace = "com.blackmark.lakshipbook"
+    namespace = "com.blackmark.bloodlink"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.blackmark.lakshipbook"
+        applicationId = "com.blackmark.bloodlink"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        val supabaseUrl = System.getenv("SUPABASE_URL") ?: (project.findProperty("SUPABASE_URL") as String? ?: "")
+        val supabaseKey = System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: (project.findProperty("SUPABASE_PUBLISHABLE_KEY") as String? ?: "")
+        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.replace("\\\"", "\\\\\"")}\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${supabaseKey.replace("\\\"", "\\\\\"")}\"")
     }
 
     buildFeatures {
@@ -43,19 +47,17 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.datastore:datastore-preferences:1.1.2")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("androidx.biometric:biometric:1.1.0")
-    implementation("androidx.fragment:fragment-ktx:1.8.5")
-    implementation("androidx.webkit:webkit:1.12.1")
     implementation("com.google.code.gson:gson:2.11.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

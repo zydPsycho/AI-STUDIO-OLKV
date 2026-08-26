@@ -29,7 +29,7 @@ function NotFoundComponent() {
           href="/"
           className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-float"
         >
-          Back to OLKV
+          Back to BLOODLINK
         </a>
       </div>
     </div>
@@ -68,19 +68,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#2563eb" },
-      { title: "OLKV — Lakshadweep Marketplace" },
-      { name: "description", content: "OLKV is Lakshadweep's marketplace to buy, sell, and connect. Boats, fishing gear, mobiles, vehicles, property, jobs and more across every island." },
-      { name: "author", content: "OLKV" },
-      { property: "og:title", content: "OLKV — Buy • Sell • Connect" },
-      { property: "og:description", content: "The marketplace for Lakshadweep. Buy and sell safely across every island." },
+      { name: "theme-color", content: "#8F2D32" },
+      { title: "BLOODLINK by KADU — Kavaratti" },
+      { name: "description", content: "BLOODLINK by KADU is the shared blood donor directory for KADU union members in Kavaratti, Lakshadweep." },
+      { name: "author", content: "KADU" },
+      { property: "og:title", content: "BLOODLINK by KADU — Find help close to home" },
+      { property: "og:description", content: "A shared KADU union donor directory for Kavaratti, Lakshadweep." },
       { property: "og:type", content: "website" },
-      { property: "og:site_name", content: "OLKV" },
+      { property: "og:site_name", content: "BLOODLINK by KADU" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Figtree:wght@300;400;500;600;700&display=swap" },

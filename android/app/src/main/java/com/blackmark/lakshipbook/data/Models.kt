@@ -1,41 +1,18 @@
-package com.blackmark.lakshipbook.data
+package com.blackmark.bloodlink.data
 
 import java.util.UUID
 
-data class Passenger(
+data class Donor(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
-    val dateOfBirth: String = "",
-    val gender: String = "",
-    val mobile: String = "",
-    val email: String = "",
-    val address: String = "",
-    val idType: String = "",
-    val idNumber: String = "",
-    val nationality: String = "Indian"
+    val age: Int = 0,
+    val bloodGroup: String = "",
+    val phone: String = "",
+    val imageUri: String = "",
+    val isAvailable: Boolean = true,
+    val sharePhone: Boolean = false,
+    val isSample: Boolean = false,
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
-data class TripDraft(
-    val from: String = "",
-    val to: String = "",
-    val journeyDate: String = "",
-    val passengerIds: List<String> = emptyList(),
-    val category: String = "Standard"
-)
-
-data class BookingRecord(
-    val id: String = UUID.randomUUID().toString(),
-    val reference: String = "",
-    val bookingDate: String = "",
-    val route: String = "",
-    val journeyDate: String = "",
-    val passengerNames: List<String> = emptyList(),
-    val amount: String = "",
-    val status: String = "Pending confirmation",
-    val officialUrl: String = "https://lakshadweep.irctc.co.in/"
-)
-
-data class UserSettings(
-    val biometricLockEnabled: Boolean = false,
-    val notificationsEnabled: Boolean = true
-)
+val BloodGroups = listOf("A+", "A−", "B+", "B−", "O+", "O−", "AB+", "AB−")

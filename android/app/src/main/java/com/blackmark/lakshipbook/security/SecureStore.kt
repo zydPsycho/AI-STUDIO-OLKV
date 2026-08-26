@@ -1,11 +1,9 @@
-package com.blackmark.lakshipbook.security
+package com.blackmark.bloodlink.security
 
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.blackmark.lakshipbook.data.BookingRecord
-import com.blackmark.lakshipbook.data.Passenger
-import com.blackmark.lakshipbook.data.UserSettings
+import com.blackmark.bloodlink.data.Donor
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
@@ -13,32 +11,26 @@ class SecureStore(context: Context) {
     private val gson = Gson()
     private val preferences = EncryptedSharedPreferences.create(
         context,
-        "lak_ship_book_secure",
+        "bloodlink_kavaratti_secure",
         MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
 
-    fun passengers(): List<Passenger> = readList(KEY_PASSENGERS)
+    fun donors(): List<Donor> = readList(KEY_DONORS)
 
-    fun savePassengers(value: List<Passenger>) {
-        preferences.edit().putString(KEY_PASSENGERS, gson.toJson(value)).apply()
+    fun saveDonors(value: List<Donor>) {
+        preferences.edit().putString(KEY_DONORS, gson.toJson(value)).apply()
     }
 
-    fun bookings(): List<BookingRecord> = readList(KEY_BOOKINGS)
+    fun currentDonorId(): String? = preferences.getString(KEY_CURRENT_DONOR, null)
 
-    fun saveBookings(value: List<BookingRecord>) {
-        preferences.edit().putString(KEY_BOOKINGS, gson.toJson(value)).apply()
-    }
-
-    fun settings(): UserSettings = preferences.getString(KEY_SETTINGS, null)?.let {
-        gson.fromJson(it, UserSettings::class.java)
-    } ?: UserSettings()
-
-    fun saveSettings(value: UserSettings) {
-        preferences.edit().putString(KEY_SETTINGS, gson.toJson(value)).apply()
+    fun saveCurrentDonorId(id: String?) {
+        preferences.edit().apply {
+            if (id == null) remove(KEY_CURRENT_DONOR) else putString(KEY_CURRENT_DONOR, id)
+        }.apply()
     }
 
     fun clearAll() {
@@ -52,8 +44,7 @@ class SecureStore(context: Context) {
     }
 
     private companion object {
-        const val KEY_PASSENGERS = "passengers"
-        const val KEY_BOOKINGS = "bookings"
-        const val KEY_SETTINGS = "settings"
+        const val KEY_DONORS = "donors"
+        const val KEY_CURRENT_DONOR = "current_donor"
     }
 }

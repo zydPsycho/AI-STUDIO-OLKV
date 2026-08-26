@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LakShipBook" parent="android:style/Theme.Material.NoActionBar">
+    <style name="Theme.BloodLink" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#10100F</item>
-        <item name="android:navigationBarColor">#10100F</item>
-        <item name="android:colorAccent">#9A3E38</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F8F7F3</item>
+        <item name="android:navigationBarColor">#F8F7F3</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:colorAccent">#8F2D32</item>
+    </style>
+
+    <style name="Theme.BloodLink.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F8F7F3</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.BloodLink</item>
     </style>
 </resources>

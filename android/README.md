@@ -1,27 +1,30 @@
-# LAK SHIP BOOK
+# BloodLink Kavaratti
 
-**BLACKMARK** · Native Android app for compliant ship-ticket booking assistance.
+**BLOODLINK by KADU** is a native Android donor directory for KADU union members in Kavaratti, Lakshadweep. It uses a warm, minimal Material 3 interface to browse shared donor profiles, filter by blood group, and call members directly.
 
-## What is implemented
+## Implemented
 
-LAK SHIP BOOK opens the official Lakshadweep IRCTC portal at `https://lakshadweep.irctc.co.in/` inside a hardened HTTPS-only WebView. It stores passenger profiles and local booking records in Android encrypted storage, supports multiple passengers, collects trip details, and provides a reusable label/accessibility-based form assistant.
+The APK connects to Supabase project `whvrmzfesmdmwmkxtcsg` through its public REST and Storage APIs. It includes shared donor cards, name search, blood-group chips for A+, A−, B+, B−, O+, O−, AB+, and AB−, availability indicators, donor detail sheets, no-login profile creation, system photo-picker integration, local profile caching, public phone details, and a safe `ACTION_DIAL` handoff. Contacts, call logs, SMS, and direct-call permissions are not requested.
 
-The form assistant fills only compatible passenger fields. It never fills or submits CAPTCHA, OTP, password, payment, card, CVV, UPI PIN, or other security fields. If the portal changes or a security step is detected, the app pauses and shows a manual continuation message. Final review, booking submission, and payment authorization remain with the user on the official portal.
-
-The app does not hard-code schedules, ship names, fares, or availability. Booking history is saved only after an apparent official confirmation page is detected and the user explicitly chooses **SAVE RECORD**. The app does not generate tickets or claim a booking from an uncertain result.
+A profile requires a name, age between 18 and 70, blood group, and phone number. A profile photo is optional; the app uses initials as an accessible fallback when no photo is chosen. Phone numbers are intentionally visible because this is a KADU union-use directory.
 
 ## Build
 
 Open the `android` directory in Android Studio, or run:
 
 ```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export SUPABASE_URL=https://whvrmzfesmdmwmkxtcsg.supabase.co
+export SUPABASE_PUBLISHABLE_KEY=<public-key-from-Supabase-project-settings>
 ./gradlew :app:assembleDebug
 ```
 
-The project uses Kotlin, Jetpack Compose, Material 3, AndroidX Security Crypto, Biometric, DataStore-compatible dependencies, and Android WebView. Minimum SDK is 26 and target/compile SDK is 35.
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The project uses Kotlin, Jetpack Compose, Material 3, AndroidX Security Crypto, and the AndroidX SplashScreen API. Minimum SDK is 26 and target/compile SDK is 35.
 
-## Security notes
+## Prototype limitation
 
-The WebView disables cleartext traffic, file access, and content access, cancels SSL errors, and allows navigation only to `lakshadweep.irctc.co.in` and its `*.irctc.co.in` subdomains. If the live portal redirects to a required payment host outside those domains, add that host only after confirming it is an official payment domain and document the decision in `MainActivity.kt`; do not broaden the allowlist to arbitrary HTTPS sites.
+This APK is shared-data enabled: donor profiles and photos are stored in the selected Supabase project so Android and the Vercel web surface see the same directory. There is intentionally no login. Anyone who receives the APK or public link can view and publish records, so distribute it only within KADU. A production release should add an invite gate, moderation/reporting, audit logs, rate limits, and emergency-service guidance.
 
-No backend, Firebase, analytics, browsing-history collection, password storage, OTP interception, payment credential capture, CAPTCHA bypass, queue bypass, rate-limit bypass, or undocumented booking endpoint is used.
+## Safety and privacy
+
+BLOODLINK is not an emergency service or a hospital blood bank. Users should verify donor identity, eligibility, and hospital instructions before relying on a listing. The app does not claim to verify donor eligibility. Phone numbers are stored and displayed as entered for union coordination.

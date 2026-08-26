@@ -5,12 +5,12 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
-        android:label="LAK SHIP BOOK"
+        android:label="BLOODLINK by KADU"
         android:supportsRtl="true"
-        android:theme="@style/Theme.LakShipBook"
+        android:theme="@style/Theme.BloodLink.Starting"
         android:usesCleartextTraffic="false">
         <activity
-            android:name=".MainActivity"
+            android:name="com.blackmark.bloodlink.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

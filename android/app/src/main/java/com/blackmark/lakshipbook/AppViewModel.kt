@@ -1,70 +1,94 @@
-package com.blackmark.lakshipbook
+package com.blackmark.bloodlink
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import com.blackmark.lakshipbook.data.BookingRecord
-import com.blackmark.lakshipbook.data.Passenger
-import com.blackmark.lakshipbook.data.TripDraft
-import com.blackmark.lakshipbook.data.UserSettings
-import com.blackmark.lakshipbook.security.SecureStore
+import androidx.lifecycle.viewModelScope
+import com.blackmark.bloodlink.data.Donor
+import com.blackmark.bloodlink.data.SupabaseDonorRepository
+import com.blackmark.bloodlink.security.SecureStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val store = SecureStore(application)
+    private val repository = SupabaseDonorRepository(application)
 
-    private val _passengers = MutableStateFlow(store.passengers())
-    val passengers: StateFlow<List<Passenger>> = _passengers.asStateFlow()
+    private val _donors = MutableStateFlow(store.donors())
+    val donors: StateFlow<List<Donor>> = _donors.asStateFlow()
 
-    private val _bookings = MutableStateFlow(store.bookings())
-    val bookings: StateFlow<List<BookingRecord>> = _bookings.asStateFlow()
+    private val _currentDonorId = MutableStateFlow(store.currentDonorId())
+    val currentDonorId: StateFlow<String?> = _currentDonorId.asStateFlow()
 
-    private val _settings = MutableStateFlow(store.settings())
-    val settings: StateFlow<UserSettings> = _settings.asStateFlow()
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _trip = MutableStateFlow(TripDraft())
-    val trip: StateFlow<TripDraft> = _trip.asStateFlow()
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
-    fun savePassenger(passenger: Passenger) {
-        val next = _passengers.value.filterNot { it.id == passenger.id } + passenger
-        _passengers.value = next
-        store.savePassengers(next)
+    init {
+        refresh()
     }
 
-    fun deletePassenger(id: String) {
-        val next = _passengers.value.filterNot { it.id == id }
-        _passengers.value = next
-        store.savePassengers(next)
-        _trip.value = _trip.value.copy(passengerIds = _trip.value.passengerIds - id)
+    fun refresh() {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            _error.value = null
+            runCatching {
+                withContext(Dispatchers.IO) { repository.fetchDonors() }
+            }.onSuccess { remoteDonors ->
+                _donors.value = remoteDonors
+                store.saveDonors(remoteDonors)
+            }.onFailure { error ->
+                _error.value = error.message ?: "Could not connect to the KADU donor directory."
+            }
+            _isSyncing.value = false
+        }
     }
 
-    fun updateTrip(trip: TripDraft) { _trip.value = trip }
-
-    fun clearTrip() { _trip.value = TripDraft() }
-
-    fun saveBooking(record: BookingRecord) {
-        val next = listOf(record) + _bookings.value
-        _bookings.value = next
-        store.saveBookings(next)
+    fun saveDonor(donor: Donor) {
+        val localDonor = donor.copy(isSample = false)
+        val optimistic = _donors.value.filterNot { it.id == localDonor.id } + localDonor
+        _donors.value = optimistic
+        store.saveDonors(optimistic)
+        _currentDonorId.value = localDonor.id
+        store.saveCurrentDonorId(localDonor.id)
+        viewModelScope.launch {
+            _isSyncing.value = true
+            _error.value = null
+            runCatching {
+                withContext(Dispatchers.IO) { repository.createDonor(localDonor) }
+            }.onSuccess { syncedDonor ->
+                val next = _donors.value.filterNot { it.id == syncedDonor.id } + syncedDonor
+                _donors.value = next
+                store.saveDonors(next)
+            }.onFailure { error ->
+                _error.value = error.message ?: "Profile saved locally, but could not reach Supabase."
+            }
+            _isSyncing.value = false
+        }
     }
 
-    fun deleteBooking(id: String) {
-        val next = _bookings.value.filterNot { it.id == id }
-        _bookings.value = next
-        store.saveBookings(next)
+    fun deleteLocalProfile(id: String) {
+        val next = _donors.value.filterNot { it.id == id }
+        _donors.value = next
+        store.saveDonors(next)
+        if (_currentDonorId.value == id) {
+            _currentDonorId.value = null
+            store.saveCurrentDonorId(null)
+        }
     }
 
-    fun updateSettings(settings: UserSettings) {
-        _settings.value = settings
-        store.saveSettings(settings)
-    }
-
-    fun clearAllData() {
+    fun clearLocalData() {
         store.clearAll()
-        _passengers.value = emptyList()
-        _bookings.value = emptyList()
-        _settings.value = UserSettings()
-        clearTrip()
+        _donors.value = emptyList()
+        _currentDonorId.value = null
+    }
+
+    fun dismissError() {
+        _error.value = null
     }
 }
