@@ -51,6 +51,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 store.saveCurrentDonorId(resolvedOwnerId)
                 _donors.value = remoteDonors
                 store.saveDonors(remoteDonors)
+                refreshAlerts()
             }.onFailure { error ->
                 _error.value = error.message ?: "Could not connect to the KADU donor directory."
             }
@@ -90,7 +91,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshAlerts() {
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) { repository.fetchAlerts() } }
+            val bloodGroup = _donors.value.firstOrNull { it.id == _currentDonorId.value }?.bloodGroup
+            runCatching { withContext(Dispatchers.IO) { repository.fetchAlerts(bloodGroup) } }
                 .onSuccess { _alerts.value = it }
                 .onFailure { error -> _error.value = error.message ?: "Could not load emergency alerts." }
         }
@@ -108,7 +110,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _isSyncing.value = true
             _error.value = null
             runCatching { withContext(Dispatchers.IO) { repository.createAlert(alert) } }
-                .onSuccess { _alerts.value = listOf(it) + _alerts.value }
+                .onSuccess { created ->
+                    if (_donors.value.firstOrNull { it.id == _currentDonorId.value }?.bloodGroup == created.requiredBloodGroup) {
+                        _alerts.value = listOf(created) + _alerts.value
+                    }
+                }
                 .onFailure { error -> _error.value = error.message ?: "Could not send the KADU emergency alert." }
             _isSyncing.value = false
         }

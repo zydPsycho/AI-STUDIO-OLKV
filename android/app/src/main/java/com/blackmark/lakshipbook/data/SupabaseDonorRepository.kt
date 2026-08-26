@@ -9,6 +9,7 @@ import com.google.gson.JsonParser
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.UUID
 
 class SupabaseDonorRepository(private val context: Context) {
@@ -49,10 +50,12 @@ class SupabaseDonorRepository(private val context: Context) {
         return donorFromJson(created).copy(imageUri = photoUrl.orEmpty())
     }
 
-    fun fetchAlerts(): List<EmergencyAlert> {
+    fun fetchAlerts(requiredBloodGroup: String?): List<EmergencyAlert> {
         ensureConfigured()
+        if (requiredBloodGroup.isNullOrBlank()) return emptyList()
+        val encodedGroup = URLEncoder.encode(requiredBloodGroup, "UTF-8")
         val body = request(
-            path = "/rest/v1/kadu_emergency_alerts?select=id,sender_name,sender_phone,patient_name,admitted_in,emergency_type,required_blood_group,units_needed,notes,created_at&order=created_at.desc&limit=100",
+            path = "/rest/v1/kadu_emergency_alerts?select=id,sender_name,sender_phone,patient_name,admitted_in,emergency_type,required_blood_group,units_needed,notes,created_at&required_blood_group=eq.$encodedGroup&order=created_at.desc&limit=100",
             method = "GET",
         )
         return JsonParser.parseString(body).asJsonArray.map { alertFromJson(it.asJsonObject) }

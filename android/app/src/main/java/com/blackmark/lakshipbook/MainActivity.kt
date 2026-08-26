@@ -368,7 +368,7 @@ private fun EmergencyAlertsScreen(
             ScreenHeader(
                 "KADU emergency network",
                 "Emergency alerts",
-                "Broadcast an urgent blood request to the KADU community.",
+                "Notify matching blood-group donors in the KADU directory.",
                 action = { IconButton(onClick = onRefresh) { if (isSyncing) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Filled.Refresh, "Refresh alerts") } },
             )
         }
@@ -377,7 +377,7 @@ private fun EmergencyAlertsScreen(
                 Column(Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(30.dp)); Spacer(Modifier.width(10.dp)); Text("Need blood urgently?", style = MaterialTheme.typography.titleLarge) }
                     Spacer(Modifier.height(8.dp))
-                    Text("Create one alert with the patient, hospital, blood group and contact details. KADU members can call you directly.", color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+                    Text("Create one alert with the patient, hospital, blood group and contact details. Only donors with the selected blood group will see it.", color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = onCreate, Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(8.dp)); Text("CREATE EMERGENCY ALERT") }
                 }
@@ -418,7 +418,7 @@ private fun EmergencyAlertEditor(senderName: String, senderPhone: String, onDism
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("Create emergency alert", style = MaterialTheme.typography.headlineSmall); Text("Broadcast to KADU members", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }; IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close") } } }
+            item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("Create emergency alert", style = MaterialTheme.typography.headlineSmall); Text("Notify matching blood-group donors", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }; IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close") } } }
             item { FormField("Your name", author) { author = it; error = null } }
             item { FormField("Your phone number", phone, keyboardType = KeyboardType.Phone) { phone = it; error = null } }
             item { FormField("Patient name", patient) { patient = it; error = null } }
@@ -428,8 +428,8 @@ private fun EmergencyAlertEditor(senderName: String, senderPhone: String, onDism
             item { FormField("Units needed (1–20)", units, keyboardType = KeyboardType.Number) { units = it.filter(Char::isDigit); error = null } }
             item { OutlinedTextField(value = notes, onValueChange = { notes = it }, Modifier.fillMaxWidth(), label = { Text("Notes (optional)") }, minLines = 3, maxLines = 5, shape = RoundedCornerShape(14.dp)) }
             if (error != null) item { Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            item { Button(onClick = { val parsedUnits = units.toIntOrNull(); error = when { author.trim().length < 2 -> "Please enter your name."; phone.filter(Char::isDigit).length < 7 -> "Please enter a valid phone number."; patient.trim().length < 2 -> "Please enter the patient name."; hospital.trim().length < 2 -> "Please enter the admitted hospital or location."; emergencyType.trim().length < 2 -> "Please enter the emergency type."; bloodGroup !in BloodGroups -> "Please select the required blood group."; parsedUnits == null || parsedUnits !in 1..20 -> "Units must be between 1 and 20."; else -> null }; if (error == null) onPublish(EmergencyAlert(senderName = author.trim(), senderPhone = phone.trim(), patientName = patient.trim(), admittedIn = hospital.trim(), emergencyType = emergencyType.trim(), requiredBloodGroup = bloodGroup, unitsNeeded = parsedUnits!!, notes = notes.trim())) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.WarningAmber, null); Spacer(Modifier.width(8.dp)); Text("BROADCAST ALERT") } }
-            item { Text("Only create an alert for a genuine urgent blood requirement. Your name and phone number will be visible to KADU members.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Button(onClick = { val parsedUnits = units.toIntOrNull(); error = when { author.trim().length < 2 -> "Please enter your name."; phone.filter(Char::isDigit).length < 7 -> "Please enter a valid phone number."; patient.trim().length < 2 -> "Please enter the patient name."; hospital.trim().length < 2 -> "Please enter the admitted hospital or location."; emergencyType.trim().length < 2 -> "Please enter the emergency type."; bloodGroup !in BloodGroups -> "Please select the required blood group."; parsedUnits == null || parsedUnits !in 1..20 -> "Units must be between 1 and 20."; else -> null }; if (error == null) onPublish(EmergencyAlert(senderName = author.trim(), senderPhone = phone.trim(), patientName = patient.trim(), admittedIn = hospital.trim(), emergencyType = emergencyType.trim(), requiredBloodGroup = bloodGroup, unitsNeeded = parsedUnits!!, notes = notes.trim())) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.WarningAmber, null); Spacer(Modifier.width(8.dp)); Text("NOTIFY MATCHING DONORS") } }
+            item { Text("Only create an alert for a genuine urgent blood requirement. Your name and phone number will be visible to matching KADU donors.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
