@@ -11,9 +11,11 @@ export SUPABASE_PUBLISHABLE_KEY=<public-key-from-Supabase-project-settings>
 ./gradlew :app:assembleDebug
 ```
 
-Result: `BUILD SUCCESSFUL`.
+Result: `BUILD SUCCESSFUL` for the debug build; the signed release build also completed successfully with `./gradlew :app:assembleRelease`.
 
 ## APK checks
+
+The distribution artifact is the signed release APK at `app/build/outputs/apk/release/app-release.apk`. The debug APK remains available for development only.
 
 | Check | Result |
 | --- | --- |
@@ -24,9 +26,11 @@ Result: `BUILD SUCCESSFUL`.
 | Launcher activity | `com.blackmark.bloodlink.MainActivity` |
 | App label | `BLOODLINK by KADU` |
 | Requested runtime permissions | No runtime permissions; manifest contains `INTERNET` and the generated AndroidX internal receiver permission |
-| APK | `app/build/outputs/apk/debug/app-debug.apk` |
-| APK size | Approximately 20 MB |
-| SHA-256 | `37e91ada3d3aee753942c20b5ac4aab2df1f1276ce289dcb2b51244769d5bcfd` |
+| Release APK | `app/build/outputs/apk/release/app-release.apk` |
+| Release APK size | Approximately 13 MB |
+| Release APK SHA-256 | `c9a31636ba9611185254adace6915ca362eefa32953875afcfb65921c22ef7be` |
+| APK signature | Verified with Android APK Signature Scheme v2; one signer |
+| Release certificate SHA-256 | `F3:8A:F6:A5:EB:0B:E9:D6:92:83:B6:91:94:0B:6C:50:52:22:D4:0B:C1:E4:E4:B1:88:9C:10:D9:A6:31:B5:E1` |
 
 ## Functional scope verified by compilation and code review
 

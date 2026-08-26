@@ -21,6 +21,8 @@ export SUPABASE_PUBLISHABLE_KEY=<public-key-from-Supabase-project-settings>
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The project uses Kotlin, Jetpack Compose, Material 3, AndroidX Security Crypto, and the AndroidX SplashScreen API. Minimum SDK is 26 and target/compile SDK is 35. Gradle reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from either the shell environment, Gradle project properties, or `android/local.properties`, so an APK built with the supplied local configuration connects to Supabase instead of falling back to cached data.
 
+For distribution, keep `android/signing.properties` and `android/keys/bloodlink-release.jks` outside Git, then run `./gradlew :app:assembleRelease`. The signed artifact is written to `app/build/outputs/apk/release/app-release.apk`. Preserve the keystore and its passwords permanently; future APK updates must use the same signing identity.
+
 ## Prototype limitation
 
 This APK is shared-data enabled: donor profiles, photos, availability, and targeted emergency alerts are stored in the selected Supabase project so all distributed Android devices see the same live data. There is intentionally no login. Anyone who receives the APK can view and publish records, so distribute it only within KADU. A production release should add an invite gate, moderation/reporting, audit logs, rate limits, and emergency-service guidance.

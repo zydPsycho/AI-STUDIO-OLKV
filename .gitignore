@@ -16,6 +16,9 @@ android/app/build/
 android/local.properties
 android/gradle-*/
 
-# Local credentials
+# Local credentials and Android signing material
 .env
 .env.*
+BLOODLINK-SIGNING-CREDENTIALS.txt
+android/signing.properties
+android/keys/
