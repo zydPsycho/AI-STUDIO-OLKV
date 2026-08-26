@@ -18,7 +18,7 @@ Result: `BUILD SUCCESSFUL`.
 | Check | Result |
 | --- | --- |
 | Package | `com.blackmark.bloodlink` |
-| Version | `1.2` / version code `3` |
+| Version | `1.3` / version code `4` |
 | Compile and target SDK | 35 |
 | Minimum SDK | 26 |
 | Launcher activity | `com.blackmark.bloodlink.MainActivity` |
@@ -26,7 +26,7 @@ Result: `BUILD SUCCESSFUL`.
 | Requested runtime permissions | No runtime permissions; manifest contains `INTERNET` and the generated AndroidX internal receiver permission |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
 | APK size | Approximately 20 MB |
-| SHA-256 | `fe08019b8fabe569164189e7fdff460153a9ba0179e1a3ff1a715d56dba58453` |
+| SHA-256 | `37e91ada3d3aee753942c20b5ac4aab2df1f1276ce289dcb2b51244769d5bcfd` |
 
 ## Functional scope verified by compilation and code review
 

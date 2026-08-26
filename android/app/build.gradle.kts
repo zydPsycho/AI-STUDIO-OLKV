@@ -19,8 +19,8 @@ android {
         applicationId = "com.blackmark.bloodlink"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
         // This is the public Supabase client configuration; RLS remains the data boundary.
         val defaultSupabaseUrl = "https://whvrmzfesmdmwmkxtcsg.supabase.co"
         val defaultSupabaseKey = "sb_publishable_sOR8HAGbrmnxJWEwskD7uQ_YIy41jfV"
