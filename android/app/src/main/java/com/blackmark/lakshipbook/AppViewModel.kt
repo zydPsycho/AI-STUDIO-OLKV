@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackmark.bloodlink.data.Donor
+import com.blackmark.bloodlink.data.EmergencyAlert
 import com.blackmark.bloodlink.data.SupabaseDonorRepository
 import com.blackmark.bloodlink.security.SecureStore
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentDonorId = MutableStateFlow(store.currentDonorId())
     val currentDonorId: StateFlow<String?> = _currentDonorId.asStateFlow()
 
+    private val _alerts = MutableStateFlow<List<EmergencyAlert>>(emptyList())
+    val alerts: StateFlow<List<EmergencyAlert>> = _alerts.asStateFlow()
+
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
@@ -31,6 +35,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         refresh()
+        refreshAlerts()
     }
 
     fun refresh() {
@@ -75,6 +80,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 store.saveCurrentDonorId(null)
                 _error.value = error.message ?: "We could not publish your profile. Please try again."
             }
+            _isSyncing.value = false
+        }
+    }
+
+    fun refreshAlerts() {
+        viewModelScope.launch {
+            runCatching { withContext(Dispatchers.IO) { repository.fetchAlerts() } }
+                .onSuccess { _alerts.value = it }
+                .onFailure { error -> _error.value = error.message ?: "Could not load emergency alerts." }
+        }
+    }
+
+    fun registerPushToken(token: String) {
+        viewModelScope.launch {
+            runCatching { withContext(Dispatchers.IO) { repository.registerPushToken(token, _currentDonorId.value) } }
+                .onFailure { /* Push registration is best-effort; the alert feed remains available. */ }
+        }
+    }
+
+    fun publishAlert(alert: EmergencyAlert) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            _error.value = null
+            runCatching { withContext(Dispatchers.IO) { repository.createAlert(alert) } }
+                .onSuccess { _alerts.value = listOf(it) + _alerts.value }
+                .onFailure { error -> _error.value = error.message ?: "Could not send the KADU emergency alert." }
             _isSyncing.value = false
         }
     }

@@ -27,4 +27,4 @@ This APK is shared-data enabled: donor profiles and photos are stored in the sel
 
 ## Safety and privacy
 
-BLOODLINK is not an emergency service or a hospital blood bank. Users should verify donor identity, eligibility, and hospital instructions before relying on a listing. The app does not claim to verify donor eligibility. Phone numbers are stored and displayed as entered for union coordination.
+BLOODLINK is not an emergency service or a hospital blood bank. Users should verify donor identity, eligibility, and hospital instructions before relying on a donor profile. The app does not claim to verify donor eligibility. Phone numbers are stored and displayed as entered for union coordination.

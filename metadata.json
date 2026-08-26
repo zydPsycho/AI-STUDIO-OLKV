@@ -1,6 +1,5 @@
 {
-  "name": "Lakshadweep Connect Market",
-  "description": "Marketplace platform connecting buyers and sellers across Lakshadweep islands",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "BLOODLINK by KADU",
+  "description": "KADU union blood donor directory for Kavaratti, Lakshadweep",
+  "requestFramePermissions": []
 }

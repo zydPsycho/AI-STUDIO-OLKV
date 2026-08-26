@@ -16,3 +16,16 @@ data class Donor(
 )
 
 val BloodGroups = listOf("A+", "A−", "B+", "B−", "O+", "O−", "AB+", "AB−")
+
+data class EmergencyAlert(
+    val id: String = "",
+    val senderName: String = "",
+    val senderPhone: String = "",
+    val patientName: String = "",
+    val admittedIn: String = "",
+    val emergencyType: String = "",
+    val requiredBloodGroup: String = "",
+    val unitsNeeded: Int = 1,
+    val notes: String = "",
+    val createdAt: String = "",
+)

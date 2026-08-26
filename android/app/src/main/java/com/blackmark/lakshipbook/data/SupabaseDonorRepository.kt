@@ -49,6 +49,66 @@ class SupabaseDonorRepository(private val context: Context) {
         return donorFromJson(created).copy(imageUri = photoUrl.orEmpty())
     }
 
+    fun fetchAlerts(): List<EmergencyAlert> {
+        ensureConfigured()
+        val body = request(
+            path = "/rest/v1/kadu_emergency_alerts?select=id,sender_name,sender_phone,patient_name,admitted_in,emergency_type,required_blood_group,units_needed,notes,created_at&order=created_at.desc&limit=100",
+            method = "GET",
+        )
+        return JsonParser.parseString(body).asJsonArray.map { alertFromJson(it.asJsonObject) }
+    }
+
+    fun createAlert(alert: EmergencyAlert): EmergencyAlert {
+        ensureConfigured()
+        val payload = JsonObject().apply {
+            addProperty("union_name", "KADU")
+            addProperty("sender_name", alert.senderName)
+            addProperty("sender_phone", alert.senderPhone)
+            addProperty("patient_name", alert.patientName)
+            addProperty("admitted_in", alert.admittedIn)
+            addProperty("emergency_type", alert.emergencyType)
+            addProperty("required_blood_group", alert.requiredBloodGroup)
+            addProperty("units_needed", alert.unitsNeeded)
+            addProperty("notes", alert.notes.ifBlank { null })
+            addProperty("is_active", true)
+        }
+        val response = request(
+            path = "/rest/v1/kadu_emergency_alerts",
+            method = "POST",
+            body = gson.toJson(payload).toByteArray(),
+            extraHeaders = mapOf("Prefer" to "return=representation"),
+        )
+        return alertFromJson(JsonParser.parseString(response).asJsonArray.first().asJsonObject)
+    }
+
+    fun registerPushToken(token: String, donorId: String?) {
+        ensureConfigured()
+        val payload = JsonObject().apply {
+            addProperty("token", token)
+            addProperty("platform", "android")
+            if (!donorId.isNullOrBlank()) addProperty("donor_id", donorId)
+        }
+        request(
+            path = "/rest/v1/kadu_push_tokens?on_conflict=token",
+            method = "POST",
+            body = gson.toJson(payload).toByteArray(),
+            extraHeaders = mapOf("Prefer" to "resolution=merge-duplicates,return=minimal"),
+        )
+    }
+
+    private fun alertFromJson(json: JsonObject): EmergencyAlert = EmergencyAlert(
+        id = json.get("id")?.asString.orEmpty(),
+        senderName = json.get("sender_name")?.asString.orEmpty(),
+        senderPhone = json.get("sender_phone")?.asString.orEmpty(),
+        patientName = json.get("patient_name")?.asString.orEmpty(),
+        admittedIn = json.get("admitted_in")?.asString.orEmpty(),
+        emergencyType = json.get("emergency_type")?.asString.orEmpty(),
+        requiredBloodGroup = json.get("required_blood_group")?.asString.orEmpty(),
+        unitsNeeded = json.get("units_needed")?.asInt ?: 1,
+        notes = json.get("notes")?.takeUnless { it.isJsonNull }?.asString.orEmpty(),
+        createdAt = json.get("created_at")?.asString.orEmpty(),
+    )
+
     fun updateAvailability(id: String, isAvailable: Boolean): Donor {
         ensureConfigured()
         val payload = JsonObject().apply { addProperty("is_available", isAvailable) }
