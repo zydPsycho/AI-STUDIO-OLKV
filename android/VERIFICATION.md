@@ -26,11 +26,11 @@ Result: `BUILD SUCCESSFUL`.
 | Requested runtime permissions | No runtime permissions; manifest contains `INTERNET` and the generated AndroidX internal receiver permission |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
 | APK size | Approximately 20 MB |
-| SHA-256 | `c413db71e4612a7a177c689a19fe7afe0a405145e10c4f795e0def3bb68a53cc` |
+| SHA-256 | `ee1d97acc0270bf2a069fd16a8a0817b426cbcc979782aef3caf9225b820d85c` |
 
 ## Functional scope verified by compilation and code review
 
-The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
+The project contains the shared KADU donor directory, name search, blood-group filters, availability labels, donor detail sheet, one-profile-per-device creation, existing-profile shortcut in the directory header, cached system photo-picker files for Supabase upload, local profile caching, visible phone details, Settings-based availability updates, duplicate self-profile suppression by owner ID plus normalized name and phone, reliable remote photo rendering through an on-device cache, Android build-time Supabase configuration loading, Android emergency-alert creation and feed filtered by the current donor blood group, patient/hospital/emergency/blood-group/units/notes fields, direct sender dialing, in-app emergency-tone preview, privacy copy, and safe dialer handoff. The final debug build completed successfully. No emulator or physical-device interaction was available in the sandbox.
 
 ## Shared backend
 

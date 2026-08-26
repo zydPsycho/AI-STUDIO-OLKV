@@ -19,7 +19,7 @@ export SUPABASE_PUBLISHABLE_KEY=<public-key-from-Supabase-project-settings>
 ./gradlew :app:assembleDebug
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The project uses Kotlin, Jetpack Compose, Material 3, AndroidX Security Crypto, and the AndroidX SplashScreen API. Minimum SDK is 26 and target/compile SDK is 35.
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. The project uses Kotlin, Jetpack Compose, Material 3, AndroidX Security Crypto, and the AndroidX SplashScreen API. Minimum SDK is 26 and target/compile SDK is 35. Gradle reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from either the shell environment, Gradle project properties, or `android/local.properties`, so an APK built with the supplied local configuration connects to Supabase instead of falling back to cached data.
 
 ## Prototype limitation
 

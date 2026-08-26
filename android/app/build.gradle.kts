@@ -1,3 +1,10 @@
+import java.util.Properties
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,8 +21,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        val supabaseUrl = System.getenv("SUPABASE_URL") ?: (project.findProperty("SUPABASE_URL") as String? ?: "")
-        val supabaseKey = System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: (project.findProperty("SUPABASE_PUBLISHABLE_KEY") as String? ?: "")
+        val supabaseUrl = System.getenv("SUPABASE_URL") ?: (project.findProperty("SUPABASE_URL") as String? ?: localProperties.getProperty("SUPABASE_URL", ""))
+        val supabaseKey = System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: (project.findProperty("SUPABASE_PUBLISHABLE_KEY") as String? ?: localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY", ""))
         buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.replace("\\\"", "\\\\\"")}\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${supabaseKey.replace("\\\"", "\\\\\"")}\"")
     }
