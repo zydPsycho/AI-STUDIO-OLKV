@@ -102,6 +102,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.blackmark.bloodlink.data.BloodGroups
 import com.blackmark.bloodlink.data.Donor
 import com.blackmark.bloodlink.ui.theme.BloodLinkTheme
@@ -167,11 +168,12 @@ private fun BloodLinkRoot(viewModel: AppViewModel) {
             when (selectedTab) {
                 AppTab.DONORS -> DonorDirectoryScreen(
                     donors = donors,
-                    currentDonorId = currentDonorId,
+                    currentDonor = donors.firstOrNull { it.id == currentDonorId },
                     isSyncing = isSyncing,
                     onRefresh = viewModel::refresh,
                     onOpenDonor = { selectedDonor = it },
                     onCreateProfile = { editingDonor = null; showEditor = true },
+                    onOpenMyProfile = { selectedTab = AppTab.PROFILE },
                 )
                 AppTab.PROFILE -> MyProfileScreen(
                     donor = donors.firstOrNull { it.id == currentDonorId },
@@ -215,11 +217,11 @@ private fun ScreenHeader(eyebrow: String, title: String, subtitle: String? = nul
 }
 
 @Composable
-private fun DonorDirectoryScreen(donors: List<Donor>, currentDonorId: String?, isSyncing: Boolean, onRefresh: () -> Unit, onOpenDonor: (Donor) -> Unit, onCreateProfile: () -> Unit) {
+private fun DonorDirectoryScreen(donors: List<Donor>, currentDonor: Donor?, isSyncing: Boolean, onRefresh: () -> Unit, onOpenDonor: (Donor) -> Unit, onCreateProfile: () -> Unit, onOpenMyProfile: () -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
     var selectedGroup by rememberSaveable { mutableStateOf("All") }
     val filtered = donors.filter { donor ->
-        donor.id != currentDonorId &&
+        donor.id != currentDonor?.id &&
             (search.isBlank() || donor.name.contains(search, true)) &&
             (selectedGroup == "All" || donor.bloodGroup == selectedGroup)
     }
@@ -234,7 +236,7 @@ private fun DonorDirectoryScreen(donors: List<Donor>, currentDonorId: String?, i
                 action = {
                     Row {
                         IconButton(onClick = onRefresh) { if (isSyncing) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(Icons.Filled.Refresh, "Refresh directory") }
-                        IconButton(onClick = onCreateProfile) { Icon(Icons.Filled.PersonAdd, "Create donor profile", tint = MaterialTheme.colorScheme.primary) }
+                        IconButton(onClick = if (currentDonor == null) onCreateProfile else onOpenMyProfile) { if (currentDonor == null) Icon(Icons.Filled.PersonAdd, "Create donor profile", tint = MaterialTheme.colorScheme.primary) else ProfileAvatar(currentDonor, 30.dp) }
                     }
                 },
             )
@@ -275,7 +277,7 @@ private fun DonorDirectoryScreen(donors: List<Donor>, currentDonorId: String?, i
                         Icon(Icons.Filled.Bloodtype, null, Modifier.size(38.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(10.dp)); Text(if (donors.isEmpty()) "No donor profiles yet" else "No matching donors", style = MaterialTheme.typography.titleMedium)
                         Text(if (donors.isEmpty()) "Add the first KADU donor profile from your union." else "Try another name or blood group.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(16.dp)); Button(onClick = onCreateProfile) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("ADD PROFILE") }
+                        if (currentDonor == null) { Spacer(Modifier.height(16.dp)); Button(onClick = onCreateProfile) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("ADD PROFILE") } } else { Spacer(Modifier.height(16.dp)); Text("Your profile is hidden from your donor list.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
                     }
                 }
             }
@@ -376,7 +378,15 @@ private fun FormField(label: String, value: String, modifier: Modifier = Modifie
 private fun PhotoPickerAvatar(imageUri: String, name: String, onClick: () -> Unit) { Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Box(contentAlignment = Alignment.BottomEnd) { ProfileAvatar(Donor(name = name, imageUri = imageUri), 104.dp); Surface(modifier = Modifier.size(34.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) { IconButton(onClick = onClick) { Icon(Icons.Filled.PhotoCamera, "Choose profile photo", tint = MaterialTheme.colorScheme.onPrimary) } } }; Spacer(Modifier.height(8.dp)); Text("Add a profile photo", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) } }
 
 @Composable
-private fun ProfileAvatar(donor: Donor, size: androidx.compose.ui.unit.Dp) { if (donor.imageUri.isNotBlank()) { AsyncImage(model = donor.imageUri, contentDescription = "Profile photo of ${donor.name}", modifier = Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop) } else { Surface(modifier = Modifier.size(size), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text(initials(donor.name), style = if (size > 80.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold) } } } }
+private fun ProfileAvatar(donor: Donor, size: androidx.compose.ui.unit.Dp) {
+    if (donor.imageUri.isNotBlank()) {
+        val context = LocalContext.current
+        val request = remember(donor.imageUri) { ImageRequest.Builder(context).data(donor.imageUri).crossfade(true).allowHardware(false).build() }
+        AsyncImage(model = request, contentDescription = "Profile photo of ${donor.name}", modifier = Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop)
+    } else {
+        Surface(modifier = Modifier.size(size), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text(initials(donor.name), style = if (size > 80.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold) } }
+    }
+}
 
 private fun copyPickedImage(context: Context, uri: Uri): String {
     return runCatching {
